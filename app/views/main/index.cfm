@@ -1,2 +1,7 @@
+<cfoutput>
 <h1>Time Tracker</h1>
-<p>Your Wheels application is running. This is the home screen placeholder &mdash; edit it at app/views/main/index.cfm</p>
+<p>Your Wheels application is running.</p>
+<ul>
+    <li>#linkTo(text="Project codes", controller="projectCodes", action="index")#</li>
+</ul>
+</cfoutput>
