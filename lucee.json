@@ -30,7 +30,7 @@
         "class": "org.sqlite.JDBC",
         "database": "timetracker",
         "dbdriver": "Other",
-        "dsn": "jdbc:sqlite:{project}/db/development.sqlite",
+        "dsn": "jdbc:sqlite:C:/inetpub/ecssites/blog/db/development.sqlite",
         "host": "",
         "password": "",
         "username": ""
@@ -39,7 +39,7 @@
         "class": "org.sqlite.JDBC",
         "database": "timetracker_test",
         "dbdriver": "Other",
-        "dsn": "jdbc:sqlite:{project}/db/test.sqlite",
+        "dsn": "jdbc:sqlite:C:/inetpub/ecssites/blog/db/test.sqlite",
         "host": "",
         "password": "",
         "username": ""
