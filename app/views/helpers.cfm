@@ -7,6 +7,9 @@ function formatMinutes(numeric minutes) {
     if (m < 0) {
         m = 0;
     }
+    if (m == 0) {
+        return "<1m";
+    }
     var h = Int(m / 60);
     var mm = m % 60;
     return (h > 0 ? h & "h " : "") & mm & "m";

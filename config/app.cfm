@@ -6,7 +6,7 @@
 		this.name = "MyAppName";
 		this.sessionTimeout = CreateTimeSpan(0,0,5,0);
 	*/
-	this.name = "blog";
+	this.name = "timetracker";
 
 	// SQLite zero-config database (configured by wheels new)
 	this.datasources["blog"] = {

@@ -57,6 +57,51 @@ component extends="Controller" {
         redirectTo(action="index");
     }
 
+    // Show the edit form for a stored entry.
+    function edit() {
+        timeEntry = model("TimeEntry").findByKey(params.key);
+        if (!IsObject(timeEntry)) {
+            flashInsert(error="That entry no longer exists.");
+            redirectTo(action="index");
+        }
+    }
+
+    // Persist edits to a stored entry's start/end times and notes.
+    function update() {
+        local.entry = model("TimeEntry").findByKey(params.key);
+        if (!IsObject(local.entry)) {
+            flashInsert(error="That entry no longer exists.");
+            redirectTo(action="index");
+            return;
+        }
+
+        // datetime-local posts "yyyy-MM-ddTHH:mm"; swap the T for a space so CFML/SQLite parse it.
+        local.started = Replace(Trim(params.startedAt ?: ""), "T", " ");
+        local.ended   = Replace(Trim(params.endedAt ?: ""), "T", " ");
+
+        if (!Len(local.started) || !IsDate(local.started)) {
+            flashInsert(error="Enter a valid start time.");
+            timeEntry = local.entry;
+            renderView(action="edit");
+            return;
+        }
+        if (!Len(local.ended) || !IsDate(local.ended)) {
+            flashInsert(error="Enter a valid end time.");
+            timeEntry = local.entry;
+            renderView(action="edit");
+            return;
+        }
+
+        // Model's validateEndAfterStart catches end-before-start.
+        if (local.entry.update(startedAt=local.started, endedAt=local.ended, notes=Trim(params.notes ?: ""))) {
+            flashInsert(success="Entry updated.");
+            redirectTo(action="index");
+        } else {
+            timeEntry = local.entry;
+            renderView(action="edit");
+        }
+    }
+
     // Stop the running timer (if any).
     function stop() {
         if (stopRunningTimer()) {

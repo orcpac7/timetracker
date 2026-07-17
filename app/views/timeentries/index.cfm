@@ -75,7 +75,7 @@
 <cfif recentEntries.recordCount>
     <table>
         <thead>
-            <tr><th>Date</th><th>Time</th><th>Duration</th><th>Code</th><th>Task</th><th>Notes</th></tr>
+            <tr><th>Date</th><th>Time</th><th>Duration</th><th>Code</th><th>Task</th><th>Notes</th><th></th></tr>
         </thead>
         <tbody>
             <cfloop query="recentEntries">
@@ -102,6 +102,7 @@
                         </cfif>
                     </td>
                     <td>#encodeForHtml(recentEntries.notes ?: "")#</td>
+                    <td>#linkTo(text="edit", route="editTimeEntry", key=recentEntries.id)#</td>
                 </tr>
             </cfloop>
         </tbody>
