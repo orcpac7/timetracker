@@ -81,6 +81,10 @@
             <cfloop query="recentEntries">
                 <cfset rowCode = model("ProjectCode").findByKey(recentEntries.projectCode_id)>
                 <cfset rowTask = Len(recentEntries.task_id ?: "") ? model("Task").findByKey(recentEntries.task_id) : false>
+                <cfset startVal = dateFormat(recentEntries.startedAt, "yyyy-mm-dd") & "T" & timeFormat(recentEntries.startedAt, "HH:mm")>
+                <cfset endVal = Len(recentEntries.endedAt ?: "") ? dateFormat(recentEntries.endedAt, "yyyy-mm-dd") & "T" & timeFormat(recentEntries.endedAt, "HH:mm") : ""> 
+                <cfset taskUrl = IsObject(rowTask) ? (rowTask.url ?: "") : "">
+                <cfset taskTitle = IsObject(rowTask) ? (rowTask.title ?: "") : "">
                 <tr>
                     <td>#dateFormat(recentEntries.startedAt, "ddd mmm d")#</td>
                     <td>#timeFormat(recentEntries.startedAt, "h:mm tt")# &ndash; #timeFormat(recentEntries.endedAt, "h:mm tt")#</td>
@@ -102,7 +106,48 @@
                         </cfif>
                     </td>
                     <td>#encodeForHtml(recentEntries.notes ?: "")#</td>
-                    <td>#linkTo(text="edit", route="editTimeEntry", key=recentEntries.id)#</td>
+                    <td><button type="button" class="edit-entry-toggle" data-entry-id="#recentEntries.id#">Edit</button></td>
+                </tr>
+                <tr class="edit-entry-row" id="edit-row-#recentEntries.id#" style="display:none;">
+                    <td colspan="7" style="padding:0;">
+                        #startFormTag(route="updateTimeEntry", key=recentEntries.id, method="post")#
+                            <div class="inline-edit-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem;background:##f9fafb;border-top:1px solid ##ddd;">
+                                <div>
+                                    <label for="projectCode_id_#recentEntries.id#">Project code</label>
+                                    <select name="projectCode_id" id="projectCode_id_#recentEntries.id#">
+                                        <option value="">-- select --</option>
+                                        <cfloop query="projectCodes">
+                                            <option value="#projectCodes.id#" <cfif IsObject(rowCode) AND rowCode.id EQ projectCodes.id>selected</cfif>>#projectCodes.code# &ndash; #encodeForHtml(projectCodes.description)#</option>
+                                        </cfloop>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="url_#recentEntries.id#">Task card URL</label>
+                                    <input type="url" name="url" id="url_#recentEntries.id#" value="#encodeForHtmlAttribute(taskUrl)#" placeholder="https://dev.azure.com/&hellip;/_workitems/edit/12345" style="width:100%;">
+                                </div>
+                                <div>
+                                    <label for="startedAt_#recentEntries.id#">Start</label>
+                                    <input type="datetime-local" name="startedAt" id="startedAt_#recentEntries.id#" step="60" value="#startVal#" style="width:100%;">
+                                </div>
+                                <div>
+                                    <label for="title_#recentEntries.id#">Title <small>(for a new card)</small></label>
+                                    <input type="text" name="title" id="title_#recentEntries.id#" value="#encodeForHtmlAttribute(taskTitle)#" style="width:100%;">
+                                </div>
+                                <div>
+                                    <label for="endedAt_#recentEntries.id#">End</label>
+                                    <input type="datetime-local" name="endedAt" id="endedAt_#recentEntries.id#" step="60" value="#endVal#" style="width:100%;">
+                                </div>
+                                <div>
+                                    <label for="notes_#recentEntries.id#">Notes</label>
+                                    <input type="text" name="notes" id="notes_#recentEntries.id#" value="#encodeForHtmlAttribute(recentEntries.notes ?: '')#" style="width:100%;">
+                                </div>
+                                <div style="grid-column:1 / -1;display:flex;gap:.5rem;justify-content:flex-end;">
+                                    #submitTag(value="Save")#
+                                    <button type="button" class="edit-entry-cancel" data-entry-id="#recentEntries.id#">Cancel</button>
+                                </div>
+                            </div>
+                        #endFormTag()#
+                    </td>
                 </tr>
             </cfloop>
         </tbody>
@@ -127,4 +172,41 @@
 })();
 </script>
 </cfif>
+<script>
+(function () {
+    var toggleButtons = document.querySelectorAll('.edit-entry-toggle');
+    var cancelButtons = document.querySelectorAll('.edit-entry-cancel');
+
+    function hideRow(id) {
+        var row = document.getElementById('edit-row-' + id);
+        if (row) {
+            row.style.display = 'none';
+        }
+    }
+
+    function showRow(id) {
+        var row = document.getElementById('edit-row-' + id);
+        if (row) {
+            row.style.display = 'table-row';
+        }
+    }
+
+    toggleButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            var id = button.getAttribute('data-entry-id');
+            var row = document.getElementById('edit-row-' + id);
+            if (!row) {
+                return;
+            }
+            row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+        });
+    });
+
+    cancelButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            hideRow(button.getAttribute('data-entry-id'));
+        });
+    });
+})();
+</script>
 </cfoutput>

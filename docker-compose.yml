@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    command: ["box", "server", "start", "directory=/app/public", "serverConfigFile=/app/lucee.json", "port=8080", "host=0.0.0.0", "openbrowser=false", "console=true", "rewritesEnable=true"]
+    restart: unless-stopped
+    stdin_open: true
+    tty: true

@@ -1,0 +1,10 @@
+.git
+.gitignore
+.dockerignore
+.vscode
+.claude
+node_modules
+**/*.sqlite
+**/tmp
+**/cache
+**/logs

@@ -9,11 +9,11 @@
 	this.name = "timetracker";
 
 	// SQLite zero-config database (configured by wheels new)
-	this.datasources["blog"] = {
+	this.datasources["timetracker"] = {
 		class: "org.sqlite.JDBC",
 		connectionString: "jdbc:sqlite:" & expandPath("../db/development.sqlite")
 	};
-	this.datasources["blog_test"] = {
+	this.datasources["timetracker_test"] = {
 		class: "org.sqlite.JDBC",
 		connectionString: "jdbc:sqlite:" & expandPath("../db/test.sqlite")
 	};

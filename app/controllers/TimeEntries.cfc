@@ -60,6 +60,7 @@ component extends="Controller" {
     // Show the edit form for a stored entry.
     function edit() {
         timeEntry = model("TimeEntry").findByKey(params.key);
+        projectCodes = model("ProjectCode").findAll(where="active = 1", order="code");
         if (!IsObject(timeEntry)) {
             flashInsert(error="That entry no longer exists.");
             redirectTo(action="index");
@@ -75,9 +76,15 @@ component extends="Controller" {
             return;
         }
 
+        projectCodes = model("ProjectCode").findAll(where="active = 1", order="code");
+
         // datetime-local posts "yyyy-MM-ddTHH:mm"; swap the T for a space so CFML/SQLite parse it.
         local.started = Replace(Trim(params.startedAt ?: ""), "T", " ");
         local.ended   = Replace(Trim(params.endedAt ?: ""), "T", " ");
+        local.projectCodeId = Trim(params.projectCode_id ?: "");
+        local.url = Trim(params.url ?: "");
+        local.title = Trim(params.title ?: "");
+        local.notes = Trim(params.notes ?: "");
 
         if (!Len(local.started) || !IsDate(local.started)) {
             flashInsert(error="Enter a valid start time.");
@@ -92,8 +99,48 @@ component extends="Controller" {
             return;
         }
 
+        local.taskId = local.entry.task_id ?: "";
+
+        if (Len(local.url)) {
+            local.wid = extractWorkItemId(local.url);
+            local.task = Len(local.wid) ? model("Task").findOne(where="workItemId = #Val(local.wid)#") : false;
+            if (IsObject(local.task)) {
+                local.taskId = local.task.id;
+            } else {
+                local.newTask = model("Task").create(
+                    projectCode_id = Len(local.projectCodeId) ? local.projectCodeId : local.entry.projectCode_id,
+                    title = local.title,
+                    url = local.url,
+                    status = "open"
+                );
+                if (local.newTask.hasErrors()) {
+                    flashInsert(error="Couldn't update the task card — enter a title for a new card.");
+                    timeEntry = local.entry;
+                    renderView(action="edit");
+                    return;
+                }
+                local.taskId = local.newTask.id;
+            }
+        }
+
+        local.updateArgs = {
+            startedAt = local.started,
+            endedAt = local.ended,
+            notes = local.notes
+        };
+
+        if (Len(local.projectCodeId)) {
+            local.updateArgs.projectCode_id = local.projectCodeId;
+        } else if (Len(local.entry.projectCode_id ?: "")) {
+            local.updateArgs.projectCode_id = local.entry.projectCode_id;
+        }
+
+        if (Len(local.taskId)) {
+            local.updateArgs.task_id = local.taskId;
+        }
+
         // Model's validateEndAfterStart catches end-before-start.
-        if (local.entry.update(startedAt=local.started, endedAt=local.ended, notes=Trim(params.notes ?: ""))) {
+        if (local.entry.update(argumentCollection=local.updateArgs)) {
             flashInsert(success="Entry updated.");
             redirectTo(action="index");
         } else {
