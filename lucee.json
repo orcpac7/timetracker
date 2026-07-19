@@ -25,41 +25,11 @@
         "enabled":false
     },
     "configuration":{
-        "datasources":{
-            "timetracker":{
-                "class":"org.sqlite.JDBC",
-                "database":"timetracker",
-                "dbdriver":"Other",
-                "dsn":"jdbc:sqlite:/app/db/development.sqlite",
-                "host":"",
-                "password":"",
-                "username":""
-            },
-            "timetracker_test":{
-                "class":"org.sqlite.JDBC",
-                "database":"timetracker_test",
-                "dbdriver":"Other",
-                "dsn":"jdbc:sqlite:/app/db/test.sqlite",
-                "host":"",
-                "password":"",
-                "username":""
-            }
-        },
         "mappings":{
             "/wheels":"../vendor/wheels",
             "/app":"../app",
             "/config":"../config",
             "/tests":"../tests"
-        }
-    },
-    "web":{
-        "host":"0.0.0.0",
-        "http":{
-            "port":"8080"
-        },
-        "webroot":"public//",
-        "rewrites":{
-            "enable":"true"
         }
     }
 }

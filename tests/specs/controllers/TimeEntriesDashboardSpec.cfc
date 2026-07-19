@@ -11,7 +11,7 @@ component extends="wheels.WheelsTest" {
                 local.projectCode = model("ProjectCode").create(
                     code = 9999,
                     description = 'Smoke test code',
-                    active = true
+                    active = 1
                 );
                 assert(IsObject(local.projectCode), "Project code created");
 
