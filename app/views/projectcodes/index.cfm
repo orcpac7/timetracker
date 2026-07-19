@@ -1,4 +1,5 @@
 <cfoutput>
+<p style="float:right;">#linkTo(text="Back to Time Tracker", controller="timeEntries", action="index")#</p>
 <h1>Project codes</h1>
 <p>#linkTo(text="+ New code", controller="projectCodes", action="new")#</p>
 

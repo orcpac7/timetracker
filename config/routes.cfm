@@ -10,6 +10,7 @@ mapper()
     .get(name="timer", pattern="timer", to="timeEntries##index")
     .get(name="editTimeEntry", pattern="entry/[key]/edit", to="timeEntries##edit")
     .post(name="updateTimeEntry", pattern="entry/[key]/update", to="timeEntries##update")
+    .post(name="deleteTimeEntry", pattern="entry/[key]/delete", to="timeEntries##delete")
     .wildcard()
     .root(to="timeEntries##index", method="get")
 .end();

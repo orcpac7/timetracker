@@ -159,6 +159,19 @@ component extends="Controller" {
         redirectTo(action="index");
     }
 
+    // Delete a time entry.
+    function delete() {
+        local.entry = model("TimeEntry").findByKey(params.key);
+        if (!IsObject(local.entry)) {
+            flashInsert(error="That entry no longer exists.");
+        } else if (local.entry.delete()) {
+            flashInsert(success="Entry deleted.");
+        } else {
+            flashInsert(error="Couldn't delete the entry.");
+        }
+        redirectTo(action="index");
+    }
+
     // --- helpers -------------------------------------------------------------
 
     // Stops the currently running entry, if one exists. Returns true if it stopped one.
