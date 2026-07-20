@@ -6,7 +6,7 @@
 <cfif projectCodes.recordCount>
 <table>
     <thead>
-        <tr><th>Code</th><th>Description</th><th>Color</th><th>Active</th><th></th></tr>
+        <tr><th>Code</th><th>Description</th><th>Color</th><th>Active</th><th>In reports</th><th></th></tr>
     </thead>
     <tbody>
         <cfloop query="projectCodes">
@@ -18,10 +18,11 @@
                 #projectCodes.color#
             </td>
             <td><cfif projectCodes.active>Yes<cfelse>No</cfif></td>
+            <td><cfif projectCodes.excludeFromReport><em>Excluded</em><cfelse>Included</cfif></td>
             <td style="white-space:nowrap;">
                 #linkTo(text="✏ Edit", controller="projectCodes", action="edit", key=projectCodes.id)#
                 &nbsp;&nbsp;
-                #startFormTag(controller="projectCodes", action="delete", key=projectCodes.id, method="delete", prepend="<span style='display:inline-block'>", append="</span>")##submitTag(value="Delete")##endFormTag()#
+                <span style="display:inline-block">#startFormTag(controller="projectCodes", action="delete", key=projectCodes.id, method="delete")##submitTag(value="Delete")##endFormTag()#</span>
             </td>
         </tr>
         </cfloop>

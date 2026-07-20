@@ -172,6 +172,35 @@ component extends="Controller" {
         redirectTo(action="index");
     }
 
+    // Resume a past entry: start a new timer on the same task/code, copying its
+    // notes. A separate row in Recent Entries; the report sums same-task sessions.
+    function resume() {
+        local.source = model("TimeEntry").findByKey(params.key);
+        if (!IsObject(local.source)) {
+            flashInsert(error="That entry no longer exists.");
+            redirectTo(action="index");
+            return;
+        }
+
+        stopRunningTimer();
+
+        local.args = { startedAt = now(), notes = local.source.notes ?: "" };
+        if (Len(local.source.task_id ?: "")) {
+            // projectCode_id follows the task via the model's beforeValidation callback.
+            local.args.task_id = local.source.task_id;
+        } else {
+            local.args.projectCode_id = local.source.projectCode_id;
+        }
+
+        local.entry = model("TimeEntry").create(argumentCollection=local.args);
+        if (local.entry.hasErrors()) {
+            flashInsert(error="Couldn't resume that entry.");
+        } else {
+            flashInsert(success="Resumed — timer started.");
+        }
+        redirectTo(action="index");
+    }
+
     // --- helpers -------------------------------------------------------------
 
     // Stops the currently running entry, if one exists. Returns true if it stopped one.

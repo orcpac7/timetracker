@@ -1,5 +1,5 @@
 <cfoutput>
-<p style="float:right;">#linkTo(text="Project codes", controller="projectCodes", action="index")#</p>
+<p style="float:right;">#linkTo(text="Daily report", route="dailyReport")# &nbsp;|&nbsp; #linkTo(text="Project codes", controller="projectCodes", action="index")#</p>
 <h1>Time Tracker</h1>
 
 <cfif IsObject(running)>
@@ -106,7 +106,8 @@
                         </cfif>
                     </td>
                     <td>#encodeForHtml(recentEntries.notes ?: "")#</td>
-                    <td>
+                    <td style="white-space:nowrap;">
+                        <span style="display:inline-block;margin-right:4px;vertical-align:middle;">#startFormTag(route="resumeEntry", key=recentEntries.id, method="post")##submitTag(value="▶ Resume")##endFormTag()#</span>
                         <button type="button" class="edit-entry-toggle" data-entry-id="#recentEntries.id#" style="margin-right:4px;">Edit</button>
                         <button type="button" class="delete-entry-main" data-entry-id="#recentEntries.id#" style="background:##dc3545;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;font-size:12px;">Delete</button>
                     </td>
