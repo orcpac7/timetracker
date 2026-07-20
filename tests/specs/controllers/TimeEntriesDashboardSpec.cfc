@@ -8,12 +8,17 @@ component extends="wheels.WheelsTest" {
                     StructDelete(request, "test");
                 }
 
-                local.projectCode = model("ProjectCode").create(
-                    code = 9999,
-                    description = 'Smoke test code',
-                    active = 1
-                );
-                assert(IsObject(local.projectCode), "Project code created");
+                // Fetch-or-create: the test DB persists across runs, and ProjectCode
+                // validates uniqueness of `code`, so a plain create() collides on re-run.
+                local.projectCode = model("ProjectCode").findOne(where="code = 9999");
+                if (!IsObject(local.projectCode)) {
+                    local.projectCode = model("ProjectCode").create(
+                        code = 9999,
+                        description = 'Smoke test code',
+                        active = 1
+                    );
+                }
+                assert(IsObject(local.projectCode) && Len(local.projectCode.id ?: ""), "Project code available");
 
                 local.timeEntry = model("TimeEntry").create(
                     projectCode_id = local.projectCode.id,

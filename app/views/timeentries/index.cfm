@@ -109,7 +109,7 @@
                     <td style="white-space:nowrap;">
                         <span style="display:inline-block;margin-right:4px;vertical-align:middle;">#startFormTag(route="resumeEntry", key=recentEntries.id, method="post")##submitTag(value="▶ Resume")##endFormTag()#</span>
                         <button type="button" class="edit-entry-toggle" data-entry-id="#recentEntries.id#" style="margin-right:4px;">Edit</button>
-                        <button type="button" class="delete-entry-main" data-entry-id="#recentEntries.id#" style="background:##dc3545;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;font-size:12px;">Delete</button>
+                        <span style="display:inline-block;vertical-align:middle;">#startFormTag(route="deleteTimeEntry", key=recentEntries.id, method="post", id="delete-form-#recentEntries.id#")##submitTag(value="Delete", onclick="return confirm('Delete this entry? This cannot be undone.');", style="background:##dc3545;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;font-size:12px;")##endFormTag()#</span>
                     </td>
                 </tr>
                 <tr class="edit-entry-row" id="edit-row-#recentEntries.id#" style="display:none;">
@@ -146,7 +146,7 @@
                                     <input type="text" name="notes" id="notes_#recentEntries.id#" value="#encodeForHtmlAttribute(recentEntries.notes ?: '')#" style="width:100%;">
                                 </div>
                                 <div style="grid-column:1 / -1;display:flex;gap:.5rem;justify-content:space-between;">
-                                    <button type="button" class="delete-entry" data-entry-id="#recentEntries.id#" style="background:##dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;">Delete</button>
+                                    <button type="submit" form="delete-form-#recentEntries.id#" onclick="return confirm('Delete this entry? This cannot be undone.');" style="background:##dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;">Delete</button>
                                     <div style="display:flex;gap:.5rem;">
                                         #submitTag(value="Save")#
                                         <button type="button" class="edit-entry-cancel" data-entry-id="#recentEntries.id#">Cancel</button>
@@ -183,7 +183,6 @@
 (function () {
     var toggleButtons = document.querySelectorAll('.edit-entry-toggle');
     var cancelButtons = document.querySelectorAll('.edit-entry-cancel');
-    var deleteButtons = document.querySelectorAll('.delete-entry, .delete-entry-main');
 
     function hideRow(id) {
         var row = document.getElementById('edit-row-' + id);
@@ -213,31 +212,6 @@
     cancelButtons.forEach(function (button) {
         button.addEventListener('click', function () {
             hideRow(button.getAttribute('data-entry-id'));
-        });
-    });
-
-    deleteButtons.forEach(function (button) {
-        button.addEventListener('click', function (e) {
-            e.preventDefault();
-            var id = button.getAttribute('data-entry-id');
-            if (confirm('Delete this entry? This cannot be undone.')) {
-                var form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/entry/' + id + '/delete';
-                
-                // Add CSRF token
-                var tokenMeta = document.querySelector('meta[name="csrf-token"]');
-                if (tokenMeta) {
-                    var tokenInput = document.createElement('input');
-                    tokenInput.type = 'hidden';
-                    tokenInput.name = 'authenticityToken';
-                    tokenInput.value = tokenMeta.getAttribute('content');
-                    form.appendChild(tokenInput);
-                }
-                
-                document.body.appendChild(form);
-                form.submit();
-            }
         });
     });
 })();
