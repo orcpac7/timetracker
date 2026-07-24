@@ -17,6 +17,7 @@ component extends="Controller" {
         todayStr = DateFormat(now(), "yyyy-mm-dd");
 
         includeExcluded = (params.includeExcluded ?: "") == "1";
+        showTimes = (params.showTimes ?: "") == "1";
 
         local.dayStart = reportDateStr & " 00:00:00";
         local.dayEnd   = nextDateStr  & " 00:00:00";

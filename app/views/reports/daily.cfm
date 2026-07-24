@@ -3,27 +3,37 @@
 <h1>Daily report</h1>
 
 <!--- ===== Date navigation ===== --->
-<cfset inclSuffix = includeExcluded ? "&includeExcluded=1" : "">
+<cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
-    <a href="/report/daily?date=#prevDateStr##inclSuffix#">&##9664; Prev</a>
+    <a href="/report/daily?date=#prevDateStr##navSuffix#">&##9664; Prev</a>
     <strong style="font-size:1.1rem;">#dateFormat(reportDateStr, "dddd, mmm d, yyyy")#</strong>
-    <a href="/report/daily?date=#nextDateStr##inclSuffix#">Next &##9654;</a>
+    <a href="/report/daily?date=#nextDateStr##navSuffix#">Next &##9654;</a>
     <cfif reportDateStr NEQ todayStr>
-        <a href="/report/daily?date=#todayStr##inclSuffix#">Today</a>
+        <a href="/report/daily?date=#todayStr##navSuffix#">Today</a>
     </cfif>
     <form method="get" action="/report/daily" style="margin:0;">
         <input type="date" name="date" value="#reportDateStr#">
         <cfif includeExcluded><input type="hidden" name="includeExcluded" value="1"></cfif>
+        <cfif showTimes><input type="hidden" name="showTimes" value="1"></cfif>
         <button type="submit">Go</button>
     </form>
 </div>
 
-<!--- ===== Include non-billable toggle ===== --->
-<form method="get" action="/report/daily" style="margin-bottom:1.5rem;">
+<!--- ===== Report toggles ===== --->
+<form method="get" action="/report/daily" style="margin-bottom:1.5rem;display:flex;flex-direction:column;gap:.4rem;">
     <input type="hidden" name="date" value="#reportDateStr#">
+    <cfif showTimes><input type="hidden" name="showTimes" value="1"></cfif>
     <label style="cursor:pointer;">
         <input type="checkbox" name="includeExcluded" value="1" <cfif includeExcluded>checked</cfif> onchange="this.form.submit()">
         Include personal / non-billable codes
+    </label>
+</form>
+<form method="get" action="/report/daily" style="margin-bottom:1.5rem;">
+    <input type="hidden" name="date" value="#reportDateStr#">
+    <cfif includeExcluded><input type="hidden" name="includeExcluded" value="1"></cfif>
+    <label style="cursor:pointer;">
+        <input type="checkbox" name="showTimes" value="1" <cfif showTimes>checked</cfif> onchange="this.form.submit()">
+        Show times
     </label>
 </form>
 
@@ -35,7 +45,7 @@
                 <span style="display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:middle;background:#g.code.color#;"></span>
                 #g.code.code# &ndash; #encodeForHtml(g.code.description)#
                 <cfif g.excluded><small style="color:##6b7280;">(non-billable)</small></cfif>
-                <span style="float:right;font-weight:normal;">Subtotal: <strong>#formatMinutes(g.totalMinutes)#</strong></span>
+                <cfif showTimes><span style="float:right;font-weight:normal;">Subtotal: <strong>#formatMinutes(g.totalMinutes)#</strong></span></cfif>
             </h2>
 
             <!--- One line per task (same-task sessions summed); notes below --->
@@ -49,15 +59,17 @@
                                 <span style="color:##6b7280;font-weight:normal;">Ad-hoc</span>
                             </cfif>
                         </span>
-                        <span style="white-space:nowrap;">#formatMinutes(e.minutes)#</span>
-                        <cfif e.sessions GT 1>
-                            <span style="white-space:nowrap;color:##6b7280;" title="#e.sessions# sessions merged">&times;#e.sessions#</span>
+                        <cfif showTimes>
+                            <span style="white-space:nowrap;">#formatMinutes(e.minutes)#</span>
+                            <cfif e.sessions GT 1>
+                                <span style="white-space:nowrap;color:##6b7280;" title="#e.sessions# sessions merged">&times;#e.sessions#</span>
+                            </cfif>
                         </cfif>
                         <cfif IsObject(e.task) AND Len(e.task.workItemId ?: "")>
                             <span style="white-space:nowrap;color:##374151;">Task #e.task.workItemId#</span>
                         </cfif>
                         <cfif IsObject(e.task) AND Len(e.task.url ?: "")>
-                            <a href="#encodeForHtmlAttribute(e.task.url)#" target="_blank" rel="noopener" style="white-space:nowrap;">Open card &##8599;</a>
+                            <a href="#encodeForHtmlAttribute(e.task.cardUrl())#" target="_blank" rel="noopener" style="white-space:nowrap;">Open card &##8599;</a>
                         </cfif>
                     </div>
                     <cfif Len(e.notes)>
@@ -68,10 +80,12 @@
         </div>
     </cfloop>
 
-    <div style="border-top:2px solid ##111;padding-top:.5rem;font-size:1.15rem;">
-        <strong>Day total:</strong> <strong>#formatMinutes(grandTotalMinutes)#</strong>
-        <cfif NOT includeExcluded><small style="color:##6b7280;">(billable only)</small></cfif>
-    </div>
+    <cfif showTimes>
+        <div style="border-top:2px solid ##111;padding-top:.5rem;font-size:1.15rem;">
+            <strong>Day total:</strong> <strong>#formatMinutes(grandTotalMinutes)#</strong>
+            <cfif NOT includeExcluded><small style="color:##6b7280;">(billable only)</small></cfif>
+        </div>
+    </cfif>
 <cfelse>
     <p>No <cfif NOT includeExcluded>billable </cfif>entries for this day.</p>
 </cfif>

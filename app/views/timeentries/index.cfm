@@ -20,7 +20,7 @@
             <p>
                 #encodeForHtml(runTask.title)#
                 <cfif Len(runTask.workItemId ?: "") AND Len(runTask.url ?: "")>
-                    &mdash; <a href="#encodeForHtmlAttribute(runTask.url)#" target="_blank" rel="noopener">###runTask.workItemId#</a>
+                    &mdash; <a href="#encodeForHtmlAttribute(runTask.cardUrl())#" target="_blank" rel="noopener">###runTask.workItemId#</a>
                 </cfif>
             </p>
         <cfelse>
@@ -50,7 +50,6 @@
                             <option value="#projectCodes.id#">#projectCodes.code# &ndash; #encodeForHtml(projectCodes.description)#</option>
                         </cfloop>
                     </select>
-                    <small>Used when creating a new card, or for ad-hoc work.</small>
                 </div>
                 <div class="field">
                     <label for="url">Task card URL <small>(optional)</small></label>
@@ -92,14 +91,18 @@
                     <td>
                         <cfif IsObject(rowCode)>
                             <span style="display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:middle;background:#rowCode.color#;"></span>
-                            #rowCode.code#
+                            #rowCode.code# &ndash; #encodeForHtml(rowCode.description)#
                         </cfif>
                     </td>
                     <td>
                         <cfif IsObject(rowTask)>
-                            #encodeForHtml(rowTask.title)#
                             <cfif Len(rowTask.workItemId ?: "") AND Len(rowTask.url ?: "")>
-                                <a href="#encodeForHtmlAttribute(rowTask.url)#" target="_blank" rel="noopener">###rowTask.workItemId#</a>
+                                <a href="#encodeForHtmlAttribute(rowTask.cardUrl())#" target="_blank" rel="noopener">Task ###rowTask.workItemId#</a>
+                            <cfelseif Len(rowTask.url ?: "")>
+                                <a href="#encodeForHtmlAttribute(rowTask.cardUrl())#" target="_blank" rel="noopener">Card &##8599;</a>
+                            </cfif>
+                            <cfif Len(rowTask.title ?: "")>
+                                <div style="color:##4b5563;font-size:.9em;">#encodeForHtml(rowTask.title)#</div>
                             </cfif>
                         <cfelse>
                             <em>ad-hoc</em>
