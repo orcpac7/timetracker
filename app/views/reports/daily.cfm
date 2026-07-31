@@ -2,8 +2,10 @@
 <p style="float:right;">#linkTo(text="Back to Time Tracker", controller="timeEntries", action="index")#</p>
 <h1>Daily report</h1>
 
-<!--- ===== Date navigation ===== --->
 <cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
+<p><a href="/report/daily/email?date=#reportDateStr##navSuffix#">Open email version (copy/paste into Outlook) &##8599;</a></p>
+
+<!--- ===== Date navigation ===== --->
 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
     <a href="/report/daily?date=#prevDateStr##navSuffix#">&##9664; Prev</a>
     <strong style="font-size:1.1rem;">#dateFormat(reportDateStr, "dddd, mmm d, yyyy")#</strong>
@@ -50,7 +52,7 @@
 
             <!--- One line per task (same-task sessions summed); notes below --->
             <cfloop array="#g.lines#" index="e">
-                <div style="padding:.4rem 0;border-bottom:1px solid ##f0f0f0;">
+                <div style="margin-left:1.5rem;margin-bottom:.9rem;padding:.4rem 0;border-bottom:1px solid ##f0f0f0;">
                     <div style="display:flex;gap:1rem;align-items:baseline;flex-wrap:wrap;">
                         <span style="flex:1;min-width:12rem;font-weight:600;">
                             <cfif IsObject(e.task) AND Len(e.task.title ?: "")>
@@ -60,20 +62,24 @@
                             </cfif>
                         </span>
                         <cfif showTimes>
-                            <span style="white-space:nowrap;">#formatMinutes(e.minutes)#</span>
+                            <span style="white-space:nowrap;">&##160;#formatMinutes(e.minutes)#</span>
                             <cfif e.sessions GT 1>
-                                <span style="white-space:nowrap;color:##6b7280;" title="#e.sessions# sessions merged">&times;#e.sessions#</span>
+                                <span style="white-space:nowrap;color:##6b7280;" title="#e.sessions# sessions merged">&##160;&times;#e.sessions#</span>
                             </cfif>
                         </cfif>
                         <cfif IsObject(e.task) AND Len(e.task.workItemId ?: "")>
-                            <span style="white-space:nowrap;color:##374151;">Task #e.task.workItemId#</span>
+                            <span style="white-space:nowrap;color:##374151;">&##160;Task #e.task.workItemId#</span>
                         </cfif>
                         <cfif IsObject(e.task) AND Len(e.task.url ?: "")>
-                            <a href="#encodeForHtmlAttribute(e.task.cardUrl())#" target="_blank" rel="noopener" style="white-space:nowrap;">Open card &##8599;</a>
+                            <a href="#encodeForHtmlAttribute(e.task.cardUrl())#" target="_blank" rel="noopener" style="white-space:nowrap;">&##160;Open card &##8599;</a>
                         </cfif>
                     </div>
-                    <cfif Len(e.notes)>
-                        <div style="color:##4b5563;margin-top:.15rem;">#encodeForHtml(e.notes)#</div>
+                    <cfif ArrayLen(e.notes)>
+                        <div style="color:##4b5563;margin-top:.15rem;">
+                            <cfloop array="#e.notes#" index="n">
+                                <div>#encodeForHtml(n)#</div>
+                            </cfloop>
+                        </div>
                     </cfif>
                 </div>
             </cfloop>

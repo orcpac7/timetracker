@@ -72,7 +72,8 @@
 <!--- ===== Recent entries ===== --->
 <h2>Recent entries</h2>
 <cfif recentEntries.recordCount>
-    <table>
+    <div style="grid-column:1 / -1;overflow-x:auto;padding:0 2rem;box-sizing:border-box;">
+    <table style="width:100%;">
         <thead>
             <tr><th>Date</th><th>Time</th><th>Duration</th><th>Code</th><th>Task</th><th>Notes</th><th></th></tr>
         </thead>
@@ -90,8 +91,10 @@
                     <td>#formatMinutes(DateDiff("n", recentEntries.startedAt, recentEntries.endedAt))#</td>
                     <td>
                         <cfif IsObject(rowCode)>
-                            <span style="display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:middle;background:#rowCode.color#;"></span>
-                            #rowCode.code# &ndash; #encodeForHtml(rowCode.description)#
+                            <div style="max-width:12rem;overflow-wrap:anywhere;">
+                                <span style="display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:middle;background:#rowCode.color#;"></span>
+                                #rowCode.code# &ndash; #encodeForHtml(rowCode.description)#
+                            </div>
                         </cfif>
                     </td>
                     <td>
@@ -102,13 +105,13 @@
                                 <a href="#encodeForHtmlAttribute(rowTask.cardUrl())#" target="_blank" rel="noopener">Card &##8599;</a>
                             </cfif>
                             <cfif Len(rowTask.title ?: "")>
-                                <div style="color:##4b5563;font-size:.9em;">#encodeForHtml(rowTask.title)#</div>
+                                <div style="color:##4b5563;font-size:.9em;max-width:14rem;overflow-wrap:anywhere;">#encodeForHtml(rowTask.title)#</div>
                             </cfif>
                         <cfelse>
                             <em>ad-hoc</em>
                         </cfif>
                     </td>
-                    <td>#encodeForHtml(recentEntries.notes ?: "")#</td>
+                    <td><div style="max-width:16rem;overflow-wrap:anywhere;white-space:normal;">#encodeForHtml(recentEntries.notes ?: "")#</div></td>
                     <td style="white-space:nowrap;">
                         <span style="display:inline-block;margin-right:4px;vertical-align:middle;">#startFormTag(route="resumeEntry", key=recentEntries.id, method="post")##submitTag(value="▶ Resume")##endFormTag()#</span>
                         <button type="button" class="edit-entry-toggle" data-entry-id="#recentEntries.id#" style="margin-right:4px;">Edit</button>
@@ -162,6 +165,7 @@
             </cfloop>
         </tbody>
     </table>
+    </div>
 <cfelse>
     <p>No entries yet. Start your first timer above.</p>
 </cfif>

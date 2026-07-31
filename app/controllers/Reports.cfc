@@ -8,6 +8,19 @@ component extends="Controller" {
     // per-code subtotals and a grand total. Codes flagged excludeFromReport
     // (personal / breaks / meals) are omitted unless includeExcluded=1.
     function daily() {
+        loadDailyReport();
+    }
+
+    // Email-safe render of the same data: table-based, inline-styled, literal
+    // spacing so the formatting survives a copy/paste into Outlook. A copy button
+    // in the view writes just the report region to the clipboard as rich HTML.
+    function emailReport() {
+        loadDailyReport();
+    }
+
+    // Shared data prep for both the on-screen and email renders. Sets the
+    // report vars (groups, totals, date navigation) into the request scope.
+    private function loadDailyReport() {
         // Resolve the report day (default today).
         local.raw = Trim(params.date ?: "");
         local.reportDate = (Len(local.raw) && IsDate(local.raw)) ? local.raw : DateFormat(now(), "yyyy-mm-dd");
@@ -41,10 +54,23 @@ component extends="Controller" {
             };
         }
 
-        // Group by code, then collapse same-task sessions into one line
-        // (durations summed, session count, latest note). Ad-hoc entries (no
-        // task) never merge — each keeps its own line. Entries are ordered by
-        // startedAt ascending, so the last note seen per task IS the latest.
+        // Task lookup by id (loaded once per distinct task referenced today).
+        // We need each entry's url field BEFORE choosing its line, so lines can
+        // merge by url rather than by task identity. Objects are kept so the
+        // view can still call cardUrl().
+        local.taskById = {};
+        for (local.i = 1; local.i <= local.entries.recordCount; local.i++) {
+            local.tid = local.entries.task_id[local.i] ?: "";
+            if (Len(local.tid) && !StructKeyExists(local.taskById, local.tid)) {
+                local.taskById[local.tid] = model("Task").findByKey(local.tid);
+            }
+        }
+
+        // Group by code, then collapse entries that share the same title into one
+        // line (durations summed, session count, all distinct notes coalesced).
+        // Task entries merge by task (a task has a stable title); ad-hoc entries
+        // (no task) merge by their notes text, so repeats of the same description
+        // combine instead of each keeping its own line.
         groups = [];
         grandTotalMinutes = 0;
         hiddenCount = 0;
@@ -65,8 +91,19 @@ component extends="Controller" {
             if (local.mins < 0) { local.mins = 0; }
 
             local.taskId = local.entries.task_id[local.i] ?: "";
-            // Same task merges; each ad-hoc entry is its own line (keyed by entry id).
-            local.taskKey = Len(local.taskId) ? "t" & local.taskId : "a" & local.entries.id[local.i];
+            local.task = (Len(local.taskId) && StructKeyExists(local.taskById, local.taskId)) ? local.taskById[local.taskId] : false;
+            local.taskUrl = IsObject(local.task) ? Trim(local.task.url ?: "") : "";
+            local.entryNote = Trim(local.entries.notes[local.i] ?: "");
+            // Merge lines by the task url field so different task rows pointing at
+            // the same card/PR collapse together. Fall back to task identity when a
+            // task has no url, and to notes text for ad-hoc (task-less) entries.
+            if (Len(local.taskUrl)) {
+                local.taskKey = "u" & LCase(local.taskUrl);
+            } else if (Len(local.taskId)) {
+                local.taskKey = "t" & local.taskId;
+            } else {
+                local.taskKey = "a" & LCase(local.entryNote);
+            }
 
             // Ensure the code group exists.
             if (!StructKeyExists(local.groupIndex, local.codeId)) {
@@ -78,12 +115,12 @@ component extends="Controller" {
             // Ensure the task line exists within the group.
             local.lkey = local.codeId & "|" & local.taskKey;
             if (!StructKeyExists(local.lineIndex, local.lkey)) {
-                local.task = Len(local.taskId) ? model("Task").findByKey(local.taskId) : false;
                 ArrayAppend(groups[local.gpos].lines, {
                     task     = local.task,
                     minutes  = 0,
                     sessions = 0,
-                    notes    = ""
+                    notes    = [],   // distinct notes, in first-seen order
+                    noteSeen = {}    // lowercased note -> true, for dedup
                 });
                 local.lineIndex[local.lkey] = ArrayLen(groups[local.gpos].lines);
             }
@@ -91,7 +128,14 @@ component extends="Controller" {
 
             groups[local.gpos].lines[local.lpos].minutes  += local.mins;
             groups[local.gpos].lines[local.lpos].sessions += 1;
-            groups[local.gpos].lines[local.lpos].notes = local.entries.notes[local.i] ?: "";  // latest wins
+            // Coalesce notes: keep each distinct note once (case-insensitive).
+            if (Len(local.entryNote)) {
+                local.noteKey = LCase(local.entryNote);
+                if (!StructKeyExists(groups[local.gpos].lines[local.lpos].noteSeen, local.noteKey)) {
+                    groups[local.gpos].lines[local.lpos].noteSeen[local.noteKey] = true;
+                    ArrayAppend(groups[local.gpos].lines[local.lpos].notes, local.entryNote);
+                }
+            }
             groups[local.gpos].totalMinutes += local.mins;
             grandTotalMinutes += local.mins;
         }
