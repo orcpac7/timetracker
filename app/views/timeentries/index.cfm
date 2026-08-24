@@ -70,7 +70,18 @@
 </cfif>
 
 <!--- ===== Recent entries ===== --->
-<h2>Recent entries</h2>
+<h2>Recent entries <small style="font-weight:normal;color:##6b7280;">#dateFormat(fromStr, "mmm d")# &ndash; #dateFormat(toStr, "mmm d")#</small></h2>
+<form method="get" action="#urlFor(route='timer')#" style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">
+    <div>
+        <label for="from" style="display:block;font-size:.85em;">From</label>
+        <input type="date" name="from" id="from" value="#encodeForHtmlAttribute(fromStr)#">
+    </div>
+    <div>
+        <label for="to" style="display:block;font-size:.85em;">To</label>
+        <input type="date" name="to" id="to" value="#encodeForHtmlAttribute(toStr)#">
+    </div>
+    <button type="submit">Apply</button>
+</form>
 <cfif recentEntries.recordCount>
     <div style="grid-column:1 / -1;overflow-x:auto;padding:0 2rem;box-sizing:border-box;">
     <table style="width:100%;">
@@ -99,13 +110,14 @@
                     </td>
                     <td>
                         <cfif IsObject(rowTask)>
+                            <cfif Len(rowTask.title ?: "")>
+                                <div style="color:##ffffff;max-width:14rem;overflow-wrap:anywhere;">#encodeForHtml(rowTask.title)#</div>
+                                <hr style="margin:.4rem 0;">
+                            </cfif>
                             <cfif Len(rowTask.workItemId ?: "") AND Len(rowTask.url ?: "")>
                                 <a href="#encodeForHtmlAttribute(rowTask.cardUrl())#" target="_blank" rel="noopener">Task ###rowTask.workItemId#</a>
                             <cfelseif Len(rowTask.url ?: "")>
                                 <a href="#encodeForHtmlAttribute(rowTask.cardUrl())#" target="_blank" rel="noopener">Card &##8599;</a>
-                            </cfif>
-                            <cfif Len(rowTask.title ?: "")>
-                                <div style="color:##4b5563;font-size:.9em;max-width:14rem;overflow-wrap:anywhere;">#encodeForHtml(rowTask.title)#</div>
                             </cfif>
                         <cfelse>
                             <em>ad-hoc</em>

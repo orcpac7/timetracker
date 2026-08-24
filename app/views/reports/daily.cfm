@@ -3,7 +3,11 @@
 <h1>Daily report</h1>
 
 <cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
-<p><a href="/report/daily/email?date=#reportDateStr##navSuffix#">Open email version (copy/paste into Outlook) &##8599;</a></p>
+<p>
+    <a href="/report/daily/email?date=#reportDateStr##navSuffix#">Open email version (copy/paste into Outlook) &##8599;</a>
+    &##160;|&##160;
+    <a href="/report/daily/notes?date=#reportDateStr##navSuffix#">Open notes-only version (bullet list) &##8599;</a>
+</p>
 
 <!--- ===== Date navigation ===== --->
 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -37,6 +41,9 @@
         <input type="checkbox" name="showTimes" value="1" <cfif showTimes>checked</cfif> onchange="this.form.submit()">
         Show times
     </label>
+    <cfif showTimes>
+        <span style="margin-left:.75rem;">Total: <strong>#formatMinutes(grandTotalMinutes)#</strong><cfif NOT includeExcluded> <small style="color:##6b7280;">(billable only)</small></cfif></span>
+    </cfif>
 </form>
 
 <cfif ArrayLen(groups)>

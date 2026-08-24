@@ -18,6 +18,13 @@ component extends="Controller" {
         loadDailyReport();
     }
 
+    // Email-safe render of just the notes text as a flat bullet list for the whole
+    // day -- no code headings, no task titles. Entries without notes contribute
+    // nothing. Same copy-to-Outlook mechanics as emailReport().
+    function notesReport() {
+        loadDailyReport();
+    }
+
     // Shared data prep for both the on-screen and email renders. Sets the
     // report vars (groups, totals, date navigation) into the request scope.
     private function loadDailyReport() {
@@ -71,11 +78,20 @@ component extends="Controller" {
         // Task entries merge by task (a task has a stable title); ad-hoc entries
         // (no task) merge by their notes text, so repeats of the same description
         // combine instead of each keeping its own line.
+        // The notes-only report needs a second, flatter view of the same entries:
+        // one row per task for the WHOLE day (not per code), each carrying its
+        // distinct notes. Minutes accumulate per entry, both on the task row and on
+        // the individual note, so nothing is double counted. Task-less entries all
+        // collapse into a single "Ad-hoc" row rather than one row per note.
         groups = [];
+        taskNoteLines = [];
+        notedMinutes = 0;
+        unnotedMinutes = 0;
         grandTotalMinutes = 0;
         hiddenCount = 0;
         local.groupIndex = {};   // codeId -> position in groups
         local.lineIndex  = {};   // "codeId|taskKey" -> position in that group's lines
+        local.dayTaskIndex = {}; // day-wide task key -> position in taskNoteLines
 
         for (local.i = 1; local.i <= local.entries.recordCount; local.i++) {
             local.codeId = local.entries.projectCode_id[local.i];
@@ -138,6 +154,50 @@ component extends="Controller" {
             }
             groups[local.gpos].totalMinutes += local.mins;
             grandTotalMinutes += local.mins;
+
+            // Day-wide task roll-up for the notes-only report: title on top, its
+            // notes underneath. Entries with no note are skipped, but their minutes
+            // are tracked so the view can say how much of the day the bullets don't
+            // account for. Ad-hoc entries share one row keyed "adhoc"; task entries
+            // merge by url then task id, mirroring the per-code merge above but
+            // without the code prefix, so one task spanning two codes stays a
+            // single row.
+            if (Len(local.entryNote)) {
+                if (Len(local.taskUrl)) {
+                    local.dkey = "u" & LCase(local.taskUrl);
+                } else if (Len(local.taskId)) {
+                    local.dkey = "t" & local.taskId;
+                } else {
+                    local.dkey = "adhoc";
+                }
+
+                if (!StructKeyExists(local.dayTaskIndex, local.dkey)) {
+                    ArrayAppend(taskNoteLines, {
+                        title    = (IsObject(local.task) AND Len(local.task.title ?: "")) ? local.task.title : "Ad-hoc",
+                        minutes  = 0,
+                        sessions = 0,
+                        notes    = [],   // {text, minutes, sessions}, first-seen order
+                        noteSeen = {}    // lowercased note -> position in notes
+                    });
+                    local.dayTaskIndex[local.dkey] = ArrayLen(taskNoteLines);
+                }
+                local.dpos = local.dayTaskIndex[local.dkey];
+                taskNoteLines[local.dpos].minutes  += local.mins;
+                taskNoteLines[local.dpos].sessions += 1;
+
+                local.nkey = LCase(local.entryNote);
+                if (!StructKeyExists(taskNoteLines[local.dpos].noteSeen, local.nkey)) {
+                    ArrayAppend(taskNoteLines[local.dpos].notes, {text = local.entryNote, minutes = 0, sessions = 0});
+                    taskNoteLines[local.dpos].noteSeen[local.nkey] = ArrayLen(taskNoteLines[local.dpos].notes);
+                }
+                local.npos = taskNoteLines[local.dpos].noteSeen[local.nkey];
+                taskNoteLines[local.dpos].notes[local.npos].minutes  += local.mins;
+                taskNoteLines[local.dpos].notes[local.npos].sessions += 1;
+
+                notedMinutes += local.mins;
+            } else {
+                unnotedMinutes += local.mins;
+            }
         }
     }
 

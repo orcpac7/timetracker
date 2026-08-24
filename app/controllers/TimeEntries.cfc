@@ -4,11 +4,29 @@ component extends="Controller" {
         super.config();
     }
 
-    // Dashboard: the running timer (if any), the start form's code list, and recent entries.
+    // Dashboard: the running timer (if any), the start form's code list, and recent
+    // entries within a date range (defaults to the current week, Sunday–Saturday).
     function index() {
         running = model("TimeEntry").findOne(where="endedAt IS NULL", order="startedAt DESC");
         projectCodes = model("ProjectCode").findAll(where="active = 1", order="code");
-        recentEntries = model("TimeEntry").findAll(where="endedAt IS NOT NULL", order="startedAt DESC", maxRows=25);
+
+        // Default range: this week, Sunday (day 1) through Saturday (day 7).
+        local.dow = DayOfWeek(now());
+        local.weekStart = DateAdd("d", -(local.dow - 1), now());
+        local.weekEnd   = DateAdd("d", 7 - local.dow, now());
+
+        local.rawFrom = Trim(params.from ?: "");
+        local.rawTo   = Trim(params.to ?: "");
+        fromStr = (Len(local.rawFrom) && IsDate(local.rawFrom)) ? DateFormat(local.rawFrom, "yyyy-mm-dd") : DateFormat(local.weekStart, "yyyy-mm-dd");
+        toStr   = (Len(local.rawTo)   && IsDate(local.rawTo))   ? DateFormat(local.rawTo,   "yyyy-mm-dd") : DateFormat(local.weekEnd,   "yyyy-mm-dd");
+
+        local.rangeStart = fromStr & " 00:00:00";
+        local.rangeEnd   = DateFormat(DateAdd("d", 1, toStr), "yyyy-mm-dd") & " 00:00:00";
+
+        recentEntries = model("TimeEntry").findAll(
+            where = "endedAt IS NOT NULL AND startedAt >= '#local.rangeStart#' AND startedAt < '#local.rangeEnd#'",
+            order = "startedAt DESC"
+        );
     }
 
     // Start a timer. Creates/reuses a task on the fly when a URL is pasted.

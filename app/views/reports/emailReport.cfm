@@ -1,5 +1,6 @@
 <cfoutput>
-<p style="float:right;">#linkTo(text="Back to report", route="dailyReport", params="date=#reportDateStr#" & (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : ""))#</p>
+<cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
+<p style="float:left;">#linkTo(text="Back to Time Tracker", controller="timeEntries", action="index")#&nbsp;|&nbsp;#linkTo(text="Back to report", route="dailyReport", params="date=#reportDateStr#" & navSuffix)#&nbsp;|&nbsp;<a href="/report/daily/notes?date=#reportDateStr##navSuffix#">Notes-only version</a></p>
 <h1>Daily report &mdash; email version</h1>
 
 <p style="color:##4b5563;">
@@ -7,10 +8,7 @@
     indentation and spacing are built with tables and literal spacing so they survive the paste.
 </p>
 
-<p>
-    <button type="button" id="copyBtn" onclick="copyEmailReport()">Copy for email</button>
-    <span id="copyStatus" style="margin-left:.75rem;color:##16a34a;"></span>
-</p>
+#includePartial("emailCopy")#
 
 <hr>
 
@@ -57,49 +55,3 @@
     </div>
 </div>
 </cfoutput>
-
-<script>
-// Copy the email-safe region to the clipboard as rich HTML (so Outlook keeps
-// the table layout and spacing), with a plain-text fallback for older browsers.
-function copyEmailReport() {
-    var el = document.getElementById("emailReport");
-    var status = document.getElementById("copyStatus");
-    var html = el.innerHTML;
-    var text = el.innerText;
-
-    function done() {
-        status.textContent = "Copied — paste into your email.";
-        setTimeout(function () { status.textContent = ""; }, 4000);
-    }
-    function fail() {
-        status.style.color = "#b91c1c";
-        status.textContent = "Copy failed — select the report and press Ctrl+C.";
-    }
-
-    if (navigator.clipboard && window.ClipboardItem) {
-        var item = new ClipboardItem({
-            "text/html": new Blob([html], { type: "text/html" }),
-            "text/plain": new Blob([text], { type: "text/plain" })
-        });
-        navigator.clipboard.write([item]).then(done).catch(fallbackCopy);
-    } else {
-        fallbackCopy();
-    }
-
-    // Fallback: select the region and use execCommand so the rich HTML is copied.
-    function fallbackCopy() {
-        try {
-            var range = document.createRange();
-            range.selectNodeContents(el);
-            var sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            var ok = document.execCommand("copy");
-            sel.removeAllRanges();
-            ok ? done() : fail();
-        } catch (e) {
-            fail();
-        }
-    }
-}
-</script>

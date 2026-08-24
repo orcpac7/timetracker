@@ -14,6 +14,7 @@ mapper()
     .post(name="resumeEntry", pattern="entry/[key]/resume", to="timeEntries##resume")
     .get(name="dailyReport", pattern="report/daily", to="reports##daily")
     .get(name="dailyReportEmail", pattern="report/daily/email", to="reports##emailReport")
+    .get(name="dailyReportNotes", pattern="report/daily/notes", to="reports##notesReport")
     .wildcard()
     .root(to="timeEntries##index", method="get")
 .end();
