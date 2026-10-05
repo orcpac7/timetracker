@@ -3,8 +3,8 @@
     "lucee":{
         "version":"7.0.0.395"
     },
-    "port":8080,
-    "shutdownPort":8081,
+    "port": 8080,
+    "shutdownPort": 8083,
     "webroot":"./public",
     "openBrowser":"false",
     "jvm":{

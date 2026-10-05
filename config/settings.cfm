@@ -34,5 +34,19 @@
 	*/
 	set(useUnderscoreReferenceColumns=true);
 
+	/*
+		Wheels 4.1.2 removed the Host-header-derived default for errorEmailAddress
+		(security advisory GHSA-8gcv-3v9h-7gj2) -- with nothing set, error emails
+		silently stop (just a wheels.log warning) instead of using a guessed address.
+	*/
+	set(errorEmailAddress="JTDavis@ecslimited.com");
+
+	/*
+		Canonical host for absolute URLs built outside a request (emailed links,
+		background jobs). Added in Wheels 4.1.2; also silences the one-time
+		production reminder when left unset.
+	*/
+	set(baseUrl="http://localhost:8080");
+
 	// CLI-Appends-Here
 </cfscript>

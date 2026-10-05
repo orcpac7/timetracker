@@ -7,7 +7,7 @@
     <div class="field">#colorField(objectName="projectCode", property="color", label="Color")#</div>
     <div class="field">#checkBox(objectName="projectCode", property="active", label="Active")#</div>
     <div class="field">#checkBox(objectName="projectCode", property="excludeFromReport", label="Exclude from reports (personal / breaks / meals — non-billable)")#</div>
+    <div class="field">#checkBox(objectName="projectCode", property="isDefault", label="Default for new time entries")#</div>
     #submitTag(value="Create code")#
 #endFormTag()#
-<p>#linkTo(text="Back to codes", controller="projectCodes", action="index")#</p>
 </cfoutput>

@@ -1,5 +1,4 @@
 <cfoutput>
-<p style="float:right;">#linkTo(text="Back to Time Tracker", controller="timeEntries", action="index")#</p>
 <h1>Daily report</h1>
 
 <cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>

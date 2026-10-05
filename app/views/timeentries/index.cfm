@@ -1,6 +1,45 @@
 <cfoutput>
-<p style="float:right;">#linkTo(text="Daily report", route="dailyReport")# &nbsp;|&nbsp; #linkTo(text="Project codes", controller="projectCodes", action="index")#</p>
 <h1>Time Tracker</h1>
+
+<!--- ===== Dashboard summary ===== --->
+<div class="dashboard-stats">
+    <div class="stat-card">
+        <div class="stat-label">Today</div>
+        <div class="stat-value">#formatMinutes(dashboardTodayMinutes)#</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">This week</div>
+        <div class="stat-value">#formatMinutes(dashboardWeekMinutes)#</div>
+    </div>
+</div>
+
+<div class="chart-card">
+    <h3>Hours this week</h3>
+    <cfif dashboardWeekMinutes GT 0>
+        <canvas id="weekDailyChart" height="80"></canvas>
+    <cfelse>
+        <p class="text-muted">No time logged yet this week.</p>
+    </cfif>
+</div>
+
+<div class="dashboard-charts">
+    <div class="chart-card">
+        <h3>By code (this week)</h3>
+        <cfif ArrayLen(dashboardWeekByCode)>
+            <canvas id="weekByCodeChart"></canvas>
+        <cfelse>
+            <p class="text-muted">No time logged yet this week.</p>
+        </cfif>
+    </div>
+    <div class="chart-card">
+        <h3>By code (all time)</h3>
+        <cfif ArrayLen(dashboardAllTimeByCode)>
+            <canvas id="allTimeByCodeChart"></canvas>
+        <cfelse>
+            <p class="text-muted">No history yet.</p>
+        </cfif>
+    </div>
+</div>
 
 <cfif IsObject(running)>
     <!--- ===== A timer is running ===== --->
@@ -47,7 +86,7 @@
                     <select name="projectCode_id" id="projectCode_id">
                         <option value="">-- select --</option>
                         <cfloop query="projectCodes">
-                            <option value="#projectCodes.id#">#projectCodes.code# &ndash; #encodeForHtml(projectCodes.description)#</option>
+                            <option value="#projectCodes.id#" <cfif IsObject(defaultProjectCode) AND defaultProjectCode.id EQ projectCodes.id>selected</cfif>>#projectCodes.code# &ndash; #encodeForHtml(projectCodes.description)#</option>
                         </cfloop>
                     </select>
                 </div>
@@ -84,7 +123,7 @@
 </form>
 <cfif recentEntries.recordCount>
     <div style="grid-column:1 / -1;overflow-x:auto;padding:0 2rem;box-sizing:border-box;">
-    <table style="width:100%;">
+    <table class="table table-bordered align-middle entries-table" style="width:100%;">
         <thead>
             <tr><th>Date</th><th>Time</th><th>Duration</th><th>Code</th><th>Task</th><th>Notes</th><th></th></tr>
         </thead>
@@ -111,7 +150,7 @@
                     <td>
                         <cfif IsObject(rowTask)>
                             <cfif Len(rowTask.title ?: "")>
-                                <div style="color:##ffffff;max-width:14rem;overflow-wrap:anywhere;">#encodeForHtml(rowTask.title)#</div>
+                                <div style="max-width:14rem;overflow-wrap:anywhere;">#encodeForHtml(rowTask.title)#</div>
                                 <hr style="margin:.4rem 0;">
                             </cfif>
                             <cfif Len(rowTask.workItemId ?: "") AND Len(rowTask.url ?: "")>
@@ -233,6 +272,54 @@
             hideRow(button.getAttribute('data-entry-id'));
         });
     });
+})();
+</script>
+<script src="/vendor/chartjs/chart.umd.min.js"></script>
+<script>
+(function () {
+    var weekDaily = #ToString(SerializeJSON(dashboardWeekDaily))#;
+    var weekByCode = #ToString(SerializeJSON(dashboardWeekByCode))#;
+    var allTimeByCode = #ToString(SerializeJSON(dashboardAllTimeByCode))#;
+
+    function hours(mins) { return Math.round((mins / 60) * 10) / 10; }
+
+    // Lucee's SerializeJSON() always uppercases struct keys, regardless of how
+    // they were declared in CFML -- read LABEL/MINUTES/COLOR, not label/minutes/color.
+    var dailyEl = document.getElementById('weekDailyChart');
+    if (dailyEl && weekDaily.length) {
+        new Chart(dailyEl, {
+            type: 'bar',
+            data: {
+                labels: weekDaily.map(function (d) { return d.LABEL; }),
+                datasets: [{ label: 'Hours', data: weekDaily.map(function (d) { return hours(d.MINUTES); }), backgroundColor: '##4f46e5' }]
+            },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+    }
+
+    var weekByCodeEl = document.getElementById('weekByCodeChart');
+    if (weekByCodeEl && weekByCode.length) {
+        new Chart(weekByCodeEl, {
+            type: 'bar',
+            data: {
+                labels: weekByCode.map(function (c) { return c.LABEL; }),
+                datasets: [{ label: 'Hours', data: weekByCode.map(function (c) { return hours(c.MINUTES); }), backgroundColor: weekByCode.map(function (c) { return c.COLOR; }) }]
+            },
+            options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        });
+    }
+
+    var allTimeEl = document.getElementById('allTimeByCodeChart');
+    if (allTimeEl && allTimeByCode.length) {
+        new Chart(allTimeEl, {
+            type: 'bar',
+            data: {
+                labels: allTimeByCode.map(function (c) { return c.LABEL; }),
+                datasets: [{ label: 'Hours', data: allTimeByCode.map(function (c) { return hours(c.MINUTES); }), backgroundColor: allTimeByCode.map(function (c) { return c.COLOR; }) }]
+            },
+            options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        });
+    }
 })();
 </script>
 </cfoutput>

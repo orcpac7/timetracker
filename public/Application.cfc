@@ -146,10 +146,25 @@ component output="false" {
 			}
 		}
 
-		application.wo.$include(
-			template = "../../#arguments.applicationScope.wheels.eventPath#/onapplicationend.cfm",
-			argumentCollection = arguments
-		);
+		// During applicationStop() teardown on Adobe CF 2023 the LIVE `application`
+		// scope is unreliable — bare `application.wo` can resolve against a
+		// stale/torn-down scope and land on a Java String[], throwing "Element wo
+		// is undefined in a Java object of type class [Ljava.lang.String;" and
+		// erroring the whole site until a CF service restart (issue #3379). The
+		// passed-in arguments.applicationScope is the only dependable reference at
+		// shutdown (it is what the $wheelsBrowserLauncher cleanup above uses), so
+		// route the call through it and guard so a partially reclaimed scope
+		// degrades to a no-op instead of a hard error.
+		if (
+			StructKeyExists(arguments.applicationScope, "wo")
+			&& StructKeyExists(arguments.applicationScope, "wheels")
+			&& StructKeyExists(arguments.applicationScope.wheels, "eventPath")
+		) {
+			arguments.applicationScope.wo.$include(
+				template = "../../#arguments.applicationScope.wheels.eventPath#/onapplicationend.cfm",
+				argumentCollection = arguments
+			);
+		}
 	}
 
 	public void function onSessionStart() {
@@ -175,13 +190,19 @@ component output="false" {
 		local.lockName = "reloadLock" & this.name;
 
 		arguments.componentReference = "wheels.events.EventMethods";
-		application.wo.$simpleLock(
-			name = local.lockName,
-			execute = "$runOnSessionEnd",
-			executeArgs = arguments,
-			type = "readOnly",
-			timeout = 180
-		);
+		// Adobe SessionTracker.SessionCleanUpAgent calls onSessionEnd after the
+		// live application scope can already be torn down (same class of failure
+		// as onApplicationEnd, issue #3379). Route through the passed-in
+		// arguments.applicationScope and guard so a reclaimed scope is a no-op.
+		if (StructKeyExists(arguments.applicationScope, "wo")) {
+			arguments.applicationScope.wo.$simpleLock(
+				name = local.lockName,
+				execute = "$runOnSessionEnd",
+				executeArgs = arguments,
+				type = "readOnly",
+				timeout = 180
+			);
+		}
 	}
 
 	public boolean function onRequestStart( string targetPage ) {
@@ -191,6 +212,21 @@ component output="false" {
 			application.contentOnly = true;
 		}else{
 			application.contentOnly = false;
+		}
+
+		// Reload password transport: the Wheels CLI sends it in the
+		// X-Wheels-Reload-Password request header so it stays out of URLs, access
+		// logs and proxy logs. Map it onto url.password so the reload gate below,
+		// the cold-start path and the soft-reload skip all see one value.
+		// ?reload=true&password=... from a browser keeps working unchanged, and
+		// an explicit url.password wins over the header.
+		if (
+			StructKeyExists(url, "reload")
+			&& !StructKeyExists(url, "password")
+			&& IsDefined("cgi.http_x_wheels_reload_password")
+			&& Len(ToString(cgi.http_x_wheels_reload_password))
+		) {
+			url.password = ToString(cgi.http_x_wheels_reload_password);
 		}
 
 		local.lockName = "reloadLock" & this.name;
@@ -389,6 +425,22 @@ component output="false" {
 	}
 
 	public void function onError( any Exception, string EventName ) {
+		// Adobe ColdFusion 2025 without its optional graphqlclient package
+		// calls onError with that notice before the application starts, then
+		// continues the same request (onApplicationStart, onRequest).
+		// Rendering it here would make that request an HTTP 500 (issue #3726).
+		// Only that exact notice is passed over; it is logged to wheels.log.
+		// Nothing here may throw or touch the application scope.
+		try {
+			local.startupNotice = new wheels.events.EngineStartupNotice();
+			if (local.startupNotice.isBenign(arguments.Exception, arguments.EventName ?: "")) {
+				local.startupNotice.record();
+				return;
+			}
+		} catch (any e) {
+			// Fall through to normal error handling.
+		}
+
 		try {
 			// Only rebuild the DI container when it never came up (e.g. the
 			// Injector failed during onApplicationStart). Injector.init()
@@ -419,47 +471,270 @@ component output="false" {
 		// already lost — fall back to a minimal HTML response rather than
 		// cascading into "The key [WO] does not exist." (issue ##2773).
 		if (!StructKeyExists(application, "wo")) {
-			setting requestTimeout=30;
-			// Surface a real 5xx so monitoring tools and CDNs don't cache this
-			// failure as a successful response. Use a plain struct for
-			// attributeCollection — Adobe CF 2023/2025 reject the `arguments`
-			// scope on built-in tags (CLAUDE.md cross-engine invariant ##10).
-			try {
-				local.statusArgs = {statusCode: 500, statusText: "Internal Server Error"};
-				cfheader(attributeCollection=local.statusArgs);
-			} catch (any headerErr) {
-				// Header may already have been written; the body still renders.
-			}
-			WriteOutput("<h1>Application Error</h1>");
-			WriteOutput("<p>Wheels failed to initialize. Check the server log for details.</p>");
-			try {
-				if (isStruct(arguments.Exception) && StructKeyExists(arguments.Exception, "message")) {
-					WriteOutput("<pre>" & encodeForHTML(arguments.Exception.message) & "</pre>");
-				}
-			} catch (any fallbackErr) {
-				// Last-ditch render must never throw.
-			}
+			$renderMinimalError(arguments.Exception, arguments.EventName ?: "");
 			return;
 		}
 
-		local.requestTimeout = application.wo.$getRequestTimeout() + 30;
-		if (StructKeyExists(application, "wheels") && StructKeyExists(application.wheels, "onErrorRequestTimeout")) {
-			local.requestTimeout = application.wheels.onErrorRequestTimeout;
+		try {
+			// In case the error was caused by a timeout we have to add extra time for error handling.
+			// We have to check if onErrorRequestTimeout exists since errors can be triggered before the application.wheels struct has been created.
+			local.requestTimeout = application.wo.$getRequestTimeout() + 30;
+			if (StructKeyExists(application, "wheels") && StructKeyExists(application.wheels, "onErrorRequestTimeout")) {
+				local.requestTimeout = application.wheels.onErrorRequestTimeout;
+			}
+			setting requestTimeout=local.requestTimeout;
+
+			application.wo.$initializeRequestScope();
+			arguments.componentReference = "wheels.events.EventMethods";
+
+			local.lockName = "reloadLock" & this.name;
+			local.rv = application.wo.$simpleLock(
+				name = local.lockName,
+				execute = "$runOnError",
+				executeArgs = arguments,
+				type = "readOnly",
+				timeout = 180
+			);
+			WriteOutput(local.rv);
+		} catch (any e) {
+			// Adobe CF can tear down the application scope mid-onError during
+			// applicationStop() (issue ##3379): application.wo resolves to a
+			// Java String[] and every dereference throws "Element wo is
+			// undefined in a Java object of type class [Ljava.lang.String".
+			// The StructKeyExists guard above can pass and the scope still be
+			// reclaimed before the dereferences below run, so degrade to the
+			// minimal fallback rather than cascade the torn-down-scope error
+			// over the real one.
+			$renderMinimalError(arguments.Exception, arguments.EventName ?: "");
 		}
-		setting requestTimeout=local.requestTimeout;
+	}
 
-		application.wo.$initializeRequestScope();
-		arguments.componentReference = "wheels.events.EventMethods";
+	// Shared minimal error response for the two onError failure modes: the
+	// Wheels global never came up (issue ##2773), and the application scope
+	// being torn down mid-onError (issue ##3379). Kept in one place so both
+	// paths render identically.
+	private void function $renderMinimalError( required any Exception, string eventName = "" ) {
+		setting requestTimeout=30;
+		// Write the real failure to wheels.log first, so the page's "check
+		// the server log" points at an entry that exists (issue ##3671).
+		$logStartupFailure(arguments.Exception, arguments.eventName);
+		// Surface a real 5xx so monitoring tools and CDNs don't cache this
+		// failure as a successful response. Use a plain struct for
+		// attributeCollection — Adobe CF 2023/2025 reject the `arguments`
+		// scope on built-in tags (CLAUDE.md cross-engine invariant ##10).
+		try {
+			local.statusArgs = {statusCode: 500, statusText: "Internal Server Error"};
+			cfheader(attributeCollection=local.statusArgs);
+		} catch (any headerErr) {
+			// Header may already have been written; the body still renders.
+		}
+		WriteOutput("<h1>Application Error</h1>");
+		WriteOutput("<p>Wheels failed to initialize. Check the server log (wheels.log) for details.</p>");
+		// How much to show follows the app's showErrorInformation setting
+		// (false in production by default) once startup got far enough to set
+		// it: the root cause in full, or nothing beyond the log pointer. Before
+		// that, only the message, as always (issue ##3671).
+		try {
+			local.showDetail = $startupFailureShowDetail();
+			if (local.showDetail == "yes") {
+				WriteOutput($startupFailureDetailHtml(arguments.Exception, arguments.eventName));
+			} else if (
+				local.showDetail == "unknown"
+				&& isStruct(arguments.Exception)
+				&& StructKeyExists(arguments.Exception, "message")
+			) {
+				WriteOutput("<pre>" & encodeForHTML(arguments.Exception.message) & "</pre>");
+			}
+		} catch (any fallbackErr) {
+			// Last-ditch render must never throw.
+		}
+	}
 
-		local.lockName = "reloadLock" & this.name;
-		local.rv = application.wo.$simpleLock(
-			name = local.lockName,
-			execute = "$runOnError",
-			executeArgs = arguments,
-			type = "readOnly",
-			timeout = 180
-		);
-		WriteOutput(local.rv);
+	// "yes" or "no" from showErrorInformation in the settings being started
+	// (application.$wheels) or the live ones (application.wheels): "no" when
+	// either says false. "unknown" when startup failed before either was set,
+	// or the application scope is being torn down (issue ##3379).
+	private string function $startupFailureShowDetail() {
+		local.rv = "unknown";
+		try {
+			for (local.scopeKey in ["$wheels", "wheels"]) {
+				if (
+					StructKeyExists(application, local.scopeKey)
+					&& IsStruct(application[local.scopeKey])
+					&& StructKeyExists(application[local.scopeKey], "showErrorInformation")
+					&& IsBoolean(application[local.scopeKey].showErrorInformation)
+				) {
+					if (!application[local.scopeKey].showErrorInformation) {
+						return "no";
+					}
+					local.rv = "yes";
+				}
+			}
+		} catch (any settingErr) {
+			return "unknown";
+		}
+		return local.rv;
+	}
+
+	// The root cause behind the minimal error page as HTML: its type,
+	// message, detail and tag context, plus the wrapper it was reported as.
+	// Every value is HTML-encoded.
+	private string function $startupFailureDetailHtml( required any Exception, string eventName = "" ) {
+		local.root = $startupFailureRoot(arguments.Exception);
+		local.html = "<h2>" & encodeForHTML(
+			"[" & $startupFailureField(local.root, "Type") & "] " & $startupFailureField(local.root, "Message")
+		) & "</h2>";
+		local.detail = $startupFailureField(local.root, "Detail");
+		if (Len(local.detail)) {
+			local.html &= "<p>" & encodeForHTML(local.detail) & "</p>";
+		}
+		if (Len(arguments.eventName)) {
+			local.html &= "<p>Event: " & encodeForHTML(arguments.eventName) & "</p>";
+		}
+		local.wrapper = "[" & $startupFailureField(arguments.Exception, "Type") & "] "
+			& $startupFailureField(arguments.Exception, "Message");
+		if (Compare(local.wrapper, "[" & $startupFailureField(local.root, "Type") & "] "
+			& $startupFailureField(local.root, "Message")) != 0) {
+			local.html &= "<p>Reported as: " & encodeForHTML(local.wrapper) & "</p>";
+		}
+		local.frames = $startupFailureFrames(local.root, arguments.Exception);
+		if (ArrayLen(local.frames)) {
+			local.html &= "<pre>" & encodeForHTML(ArrayToList(local.frames, Chr(10))) & "</pre>";
+		}
+		return local.html;
+	}
+
+	// Log the failure behind the minimal error page to wheels.log (issue
+	// ##3671). Adobe CF wraps a failure inside an application event in an
+	// event-handler exception whose message hides the real one, so walk
+	// RootCause / Cause to the innermost error and log its type, message,
+	// detail and first tag-context frame, plus the wrapper. Runs on the
+	// last-ditch error path: it must never throw, and it only logs (the
+	// rendered page stays minimal).
+	private void function $logStartupFailure( required any Exception, string eventName = "" ) {
+		try {
+			local.root = $startupFailureRoot(arguments.Exception);
+
+			local.text = "Wheels failed to initialize";
+			if (Len(arguments.eventName)) {
+				local.text &= " in " & arguments.eventName;
+			}
+			local.text &= ": [" & $startupFailureField(local.root, "Type") & "] "
+				& $startupFailureField(local.root, "Message");
+			local.detail = $startupFailureField(local.root, "Detail");
+			if (Len(local.detail)) {
+				local.text &= " -- " & local.detail;
+			}
+			local.frames = $startupFailureFrames(local.root, arguments.Exception);
+			if (ArrayLen(local.frames)) {
+				local.text &= " (at " & ArrayToList(local.frames, " < ") & ")";
+			}
+			local.wrapper = "[" & $startupFailureField(arguments.Exception, "Type") & "] "
+				& $startupFailureField(arguments.Exception, "Message");
+			if (Compare(local.wrapper, "[" & $startupFailureField(local.root, "Type") & "] "
+				& $startupFailureField(local.root, "Message")) != 0) {
+				local.text &= " (reported as " & local.wrapper & ")";
+			}
+			local.text = ReReplace(local.text, "[\r\n\t]+", " ", "all");
+			if (Len(local.text) > 16000) {
+				local.text = Left(local.text, 16000) & "...";
+			}
+			WriteLog(file = "wheels", type = "error", text = local.text);
+		} catch (any logErr) {
+			// Logging must never mask the original error.
+		}
+	}
+
+	// The innermost cause of `failure` (at most 10 levels down), or `failure`
+	// itself when it has none.
+	private any function $startupFailureRoot( required any failure ) {
+		local.root = arguments.failure;
+		for (local.depth = 1; local.depth <= 10; local.depth++) {
+			local.next = $startupFailureCause(local.root);
+			if (IsSimpleValue(local.next)) {
+				break;
+			}
+			local.root = local.next;
+		}
+		return local.root;
+	}
+
+	// The exception that caused this one (Adobe RootCause, Lucee/Java Cause),
+	// or "" when there is none.
+	private any function $startupFailureCause( required any failure ) {
+		try {
+			if (IsStruct(arguments.failure)) {
+				for (local.key in ["RootCause", "Cause"]) {
+					if (StructKeyExists(arguments.failure, local.key)) {
+						local.candidate = arguments.failure[local.key];
+						if (!IsNull(local.candidate) && !IsSimpleValue(local.candidate)
+							&& Len($startupFailureField(local.candidate, "Message"))) {
+							return local.candidate;
+						}
+					}
+				}
+			} else if (IsObject(arguments.failure)) {
+				local.candidate = arguments.failure.getCause();
+				if (!IsNull(local.candidate)) {
+					return local.candidate;
+				}
+			}
+		} catch (any causeErr) {
+			// No usable cause.
+		}
+		return "";
+	}
+
+	// A simple field (Type, Message, Detail) of a CFML exception struct or a
+	// Java Throwable, or "" when absent.
+	private string function $startupFailureField( required any failure, required string key ) {
+		try {
+			if (IsStruct(arguments.failure)) {
+				if (StructKeyExists(arguments.failure, arguments.key)) {
+					local.value = arguments.failure[arguments.key];
+					if (!IsNull(local.value) && IsSimpleValue(local.value)) {
+						return Trim(ToString(local.value));
+					}
+				}
+			} else if (IsObject(arguments.failure)) {
+				if (arguments.key == "Type") {
+					return arguments.failure.getClass().getName();
+				}
+				if (arguments.key == "Message") {
+					local.value = arguments.failure.getMessage();
+					if (!IsNull(local.value)) {
+						return Trim(ToString(local.value));
+					}
+				}
+			}
+		} catch (any fieldErr) {
+			// Unreadable field.
+		}
+		return "";
+	}
+
+	// Up to 20 "template:line" tag-context frames, innermost first: the root
+	// cause's own, else the wrapper's. [] when neither has any.
+	private array function $startupFailureFrames( required any root, required any wrapper ) {
+		local.frames = [];
+		try {
+			for (local.failure in [arguments.root, arguments.wrapper]) {
+				if (IsStruct(local.failure) && StructKeyExists(local.failure, "TagContext") && IsArray(local.failure.TagContext)) {
+					for (local.frame in local.failure.TagContext) {
+						ArrayAppend(local.frames, $startupFailureField(local.frame, "Template") & ":" & $startupFailureField(local.frame, "Line"));
+						if (ArrayLen(local.frames) >= 20) {
+							break;
+						}
+					}
+					if (ArrayLen(local.frames)) {
+						break;
+					}
+				}
+			}
+		} catch (any frameErr) {
+			// No usable frames.
+		}
+		return local.frames;
 	}
 
 	public boolean function onMissingTemplate( string targetPage ) {

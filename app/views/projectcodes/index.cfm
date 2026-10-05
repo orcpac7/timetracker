@@ -1,12 +1,11 @@
 <cfoutput>
-<p style="float:right;">#linkTo(text="Back to Time Tracker", controller="timeEntries", action="index")#</p>
 <h1>Project codes</h1>
 <p>#linkTo(text="+ New code", controller="projectCodes", action="new")#</p>
 
 <cfif projectCodes.recordCount>
 <table>
     <thead>
-        <tr><th>Code</th><th>Description</th><th>Color</th><th>Active</th><th>In reports</th><th></th></tr>
+        <tr><th>Code</th><th>Description</th><th>Color</th><th>Active</th><th>In reports</th><th>Default</th><th></th></tr>
     </thead>
     <tbody>
         <cfloop query="projectCodes">
@@ -19,6 +18,7 @@
             </td>
             <td><cfif projectCodes.active>Yes<cfelse>No</cfif></td>
             <td><cfif projectCodes.excludeFromReport><em>Excluded</em><cfelse>Included</cfif></td>
+            <td><cfif projectCodes.isDefault>Yes</cfif></td>
             <td style="white-space:nowrap;">
                 #linkTo(text="✏ Edit", controller="projectCodes", action="edit", key=projectCodes.id)#
                 &nbsp;&nbsp;

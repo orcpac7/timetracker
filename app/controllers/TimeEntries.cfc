@@ -4,21 +4,20 @@ component extends="Controller" {
         super.config();
     }
 
-    // Dashboard: the running timer (if any), the start form's code list, and recent
-    // entries within a date range (defaults to the current week, Sunday–Saturday).
+    // Dashboard: the running timer (if any), the start form's code list, summary
+    // stats/charts, and recent entries within a date range (defaults to the
+    // current week, Sunday–Saturday).
     function index() {
         running = model("TimeEntry").findOne(where="endedAt IS NULL", order="startedAt DESC");
         projectCodes = model("ProjectCode").findAll(where="active = 1", order="code");
+        defaultProjectCode = model("ProjectCode").findOne(where="active = 1 AND isDefault = 1");
 
-        // Default range: this week, Sunday (day 1) through Saturday (day 7).
-        local.dow = DayOfWeek(now());
-        local.weekStart = DateAdd("d", -(local.dow - 1), now());
-        local.weekEnd   = DateAdd("d", 7 - local.dow, now());
+        local.week = currentWeekBounds();
 
         local.rawFrom = Trim(params.from ?: "");
         local.rawTo   = Trim(params.to ?: "");
-        fromStr = (Len(local.rawFrom) && IsDate(local.rawFrom)) ? DateFormat(local.rawFrom, "yyyy-mm-dd") : DateFormat(local.weekStart, "yyyy-mm-dd");
-        toStr   = (Len(local.rawTo)   && IsDate(local.rawTo))   ? DateFormat(local.rawTo,   "yyyy-mm-dd") : DateFormat(local.weekEnd,   "yyyy-mm-dd");
+        fromStr = (Len(local.rawFrom) && IsDate(local.rawFrom)) ? DateFormat(local.rawFrom, "yyyy-mm-dd") : DateFormat(local.week.start, "yyyy-mm-dd");
+        toStr   = (Len(local.rawTo)   && IsDate(local.rawTo))   ? DateFormat(local.rawTo,   "yyyy-mm-dd") : DateFormat(local.week.end,   "yyyy-mm-dd");
 
         local.rangeStart = fromStr & " 00:00:00";
         local.rangeEnd   = DateFormat(DateAdd("d", 1, toStr), "yyyy-mm-dd") & " 00:00:00";
@@ -27,6 +26,8 @@ component extends="Controller" {
             where = "endedAt IS NOT NULL AND startedAt >= '#local.rangeStart#' AND startedAt < '#local.rangeEnd#'",
             order = "startedAt DESC"
         );
+
+        loadDashboardStats();
     }
 
     // Start a timer. Creates/reuses a task on the fly when a URL is pasted.
@@ -39,8 +40,8 @@ component extends="Controller" {
         local.notes = Trim(params.notes ?: "");
         local.taskId = "";
 
-        if (Len(local.url)) {
-            local.wid = extractWorkItemId(local.url);
+        if (Len(local.url) || Len(local.title)) {
+            local.wid = Len(local.url) ? extractWorkItemId(local.url) : "";
             local.task = Len(local.wid) ? model("Task").findOne(where="workItemId = #Val(local.wid)#") : false;
             if (IsObject(local.task)) {
                 local.taskId = local.task.id;
@@ -119,8 +120,8 @@ component extends="Controller" {
 
         local.taskId = local.entry.task_id ?: "";
 
-        if (Len(local.url)) {
-            local.wid = extractWorkItemId(local.url);
+        if (Len(local.url) || Len(local.title)) {
+            local.wid = Len(local.url) ? extractWorkItemId(local.url) : "";
             local.task = Len(local.wid) ? model("Task").findOne(where="workItemId = #Val(local.wid)#") : false;
             if (IsObject(local.task)) {
                 local.taskId = local.task.id;
@@ -220,6 +221,113 @@ component extends="Controller" {
     }
 
     // --- helpers -------------------------------------------------------------
+
+    // The current week, Sunday (day 1) through Saturday (day 7).
+    private struct function currentWeekBounds() {
+        local.dow = DayOfWeek(now());
+        return {
+            start = DateAdd("d", -(local.dow - 1), now()),
+            end   = DateAdd("d", 7 - local.dow, now())
+        };
+    }
+
+    // Builds the dashboard summary: today/week totals, hours-per-day this week,
+    // and hours-by-code (this week and all-time). Sets request-scope vars for the view.
+    private void function loadDashboardStats() {
+        local.week = currentWeekBounds();
+        local.todayStr = DateFormat(now(), "yyyy-mm-dd");
+
+        local.weekStartStr = DateFormat(local.week.start, "yyyy-mm-dd");
+        local.weekEndStr   = DateFormat(local.week.end, "yyyy-mm-dd");
+        local.weekRangeStart = local.weekStartStr & " 00:00:00";
+        local.weekRangeEnd   = DateFormat(DateAdd("d", 1, local.weekEndStr), "yyyy-mm-dd") & " 00:00:00";
+
+        // Project-code lookup by id (plain structs, not model instances -- mirrors
+        // the codeById pattern in Reports.loadDailyReport()).
+        local.codeQuery = model("ProjectCode").findAll();
+        local.codeById = {};
+        for (local.r = 1; local.r <= local.codeQuery.recordCount; local.r++) {
+            local.codeById[local.codeQuery.id[local.r]] = {
+                code        = local.codeQuery.code[local.r],
+                description = local.codeQuery.description[local.r],
+                color       = local.codeQuery.color[local.r]
+            };
+        }
+
+        // Seed 7 daily buckets, Sunday through Saturday.
+        local.dailyBuckets = [];
+        for (local.i = 0; local.i <= 6; local.i++) {
+            ArrayAppend(local.dailyBuckets, { label = DateFormat(DateAdd("d", local.i, local.week.start), "ddd"), minutes = 0 });
+        }
+
+        local.weekByCodeMinutes = {};
+        dashboardTodayMinutes = 0;
+
+        local.weekEntries = model("TimeEntry").findAll(
+            where = "endedAt IS NOT NULL AND startedAt >= '#local.weekRangeStart#' AND startedAt < '#local.weekRangeEnd#'",
+            order = "startedAt"
+        );
+
+        for (local.i = 1; local.i <= local.weekEntries.recordCount; local.i++) {
+            local.mins = DateDiff("n", local.weekEntries.startedAt[local.i], local.weekEntries.endedAt[local.i]);
+            if (local.mins < 0) { local.mins = 0; }
+
+            local.entryDateStr = DateFormat(local.weekEntries.startedAt[local.i], "yyyy-mm-dd");
+            local.dayIndex = DateDiff("d", local.weekStartStr, local.entryDateStr);
+            if (local.dayIndex >= 0 && local.dayIndex <= 6) {
+                local.dailyBuckets[local.dayIndex + 1].minutes += local.mins;
+            }
+
+            local.codeId = local.weekEntries.projectCode_id[local.i];
+            if (!StructKeyExists(local.weekByCodeMinutes, local.codeId)) {
+                local.weekByCodeMinutes[local.codeId] = 0;
+            }
+            local.weekByCodeMinutes[local.codeId] += local.mins;
+
+            if (local.entryDateStr == local.todayStr) {
+                dashboardTodayMinutes += local.mins;
+            }
+        }
+
+        dashboardWeekDaily = local.dailyBuckets;
+
+        dashboardWeekMinutes = 0;
+        dashboardWeekByCode = [];
+        for (local.id in local.weekByCodeMinutes) {
+            dashboardWeekMinutes += local.weekByCodeMinutes[local.id];
+            if (StructKeyExists(local.codeById, local.id)) {
+                local.c = local.codeById[local.id];
+                ArrayAppend(dashboardWeekByCode, { label = "#local.c.code# - #local.c.description#", color = local.c.color, minutes = local.weekByCodeMinutes[local.id] });
+            }
+        }
+        ArraySort(dashboardWeekByCode, function(a, b) { return b.minutes - a.minutes; });
+
+        // All-time, by code.
+        local.allByCodeMinutes = {};
+        local.allEntries = model("TimeEntry").findAll(
+            where = "endedAt IS NOT NULL",
+            select = "projectCode_id, startedAt, endedAt"
+        );
+        for (local.i = 1; local.i <= local.allEntries.recordCount; local.i++) {
+            local.mins = DateDiff("n", local.allEntries.startedAt[local.i], local.allEntries.endedAt[local.i]);
+            if (local.mins < 0) { local.mins = 0; }
+
+            local.codeId = local.allEntries.projectCode_id[local.i];
+            if (!StructKeyExists(local.allByCodeMinutes, local.codeId)) {
+                local.allByCodeMinutes[local.codeId] = 0;
+            }
+            local.allByCodeMinutes[local.codeId] += local.mins;
+        }
+
+        dashboardAllTimeByCode = [];
+        for (local.id in local.allByCodeMinutes) {
+            if (StructKeyExists(local.codeById, local.id)) {
+                local.c = local.codeById[local.id];
+                ArrayAppend(dashboardAllTimeByCode, { label = "#local.c.code# - #local.c.description#", color = local.c.color, minutes = local.allByCodeMinutes[local.id] });
+            }
+        }
+        ArraySort(dashboardAllTimeByCode, function(a, b) { return b.minutes - a.minutes; });
+    }
 
     // Stops the currently running entry, if one exists. Returns true if it stopped one.
     private boolean function stopRunningTimer() {

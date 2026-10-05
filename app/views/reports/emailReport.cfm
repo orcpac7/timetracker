@@ -1,6 +1,6 @@
 <cfoutput>
 <cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
-<p style="float:left;">#linkTo(text="Back to Time Tracker", controller="timeEntries", action="index")#&nbsp;|&nbsp;#linkTo(text="Back to report", route="dailyReport", params="date=#reportDateStr#" & navSuffix)#&nbsp;|&nbsp;<a href="/report/daily/notes?date=#reportDateStr##navSuffix#">Notes-only version</a></p>
+<p style="float:left;">#linkTo(text="Back to report", route="dailyReport", params="date=#reportDateStr#" & navSuffix)#&nbsp;|&nbsp;<a href="/report/daily/notes?date=#reportDateStr##navSuffix#">Notes-only version</a></p>
 <h1>Daily report &mdash; email version</h1>
 
 <p style="color:##4b5563;">
