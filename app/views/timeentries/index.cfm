@@ -59,6 +59,10 @@
                     <input type="text" name="title" id="title" style="width:100%;">
                 </div>
                 <div class="field">
+                    <input type="hidden" name="isReview" value="0">
+                    <label style="cursor:pointer;"><input type="checkbox" name="isReview" id="isReview" value="1"> Code review <small>(ticked automatically for pull request URLs)</small></label>
+                </div>
+                <div class="field">
                     <label for="notes">Notes <small>(optional)</small></label>
                     <input type="text" name="notes" id="notes" style="width:100%;">
                 </div>
@@ -202,6 +206,10 @@
                                     <label for="notes_#recentEntries.id#">Notes</label>
                                     <input type="text" name="notes" id="notes_#recentEntries.id#" value="#encodeForHtmlAttribute(recentEntries.notes ?: '')#" style="width:100%;">
                                 </div>
+                                <div style="grid-column:1 / -1;">
+                                    <input type="hidden" name="isReview" value="0">
+                                    <label style="cursor:pointer;"><input type="checkbox" name="isReview" value="1" <cfif IsObject(rowTask) AND Val(rowTask.isReview ?: 0)>checked</cfif>> Code review <small>(applies to every entry with this URL)</small></label>
+                                </div>
                                 <div style="grid-column:1 / -1;display:flex;gap:.5rem;justify-content:space-between;">
                                     <button type="submit" form="delete-form-#recentEntries.id#" onclick="return confirm('Delete this entry? This cannot be undone.');" style="background:##dc3545;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;">Delete</button>
                                     <div style="display:flex;gap:.5rem;">
@@ -221,6 +229,16 @@
     <p>No entries yet. Start your first timer above.</p>
 </cfif>
 
+<script>
+(function () {
+    var url = document.getElementById('url');
+    var review = document.getElementById('isReview');
+    if (!url || !review) return;
+    url.addEventListener('input', function () {
+        if (/pullrequest/i.test(url.value)) review.checked = true;
+    });
+})();
+</script>
 <cfif IsObject(running)>
 <script>
 (function () {

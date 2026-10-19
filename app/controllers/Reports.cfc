@@ -38,9 +38,17 @@ component extends="Controller" {
 
         includeExcluded = (params.includeExcluded ?: "") == "1";
         showTimes = (params.showTimes ?: "") == "1";
+        includeReview = (params.includeReview ?: "") == "1";
 
         local.dayStart = reportDateStr & " 00:00:00";
         local.dayEnd   = nextDateStr  & " 00:00:00";
+
+        reviewTodayMinutes = 0;
+        reviewAllTimeMinutes = 0;
+        if (includeReview) {
+            reviewTodayMinutes = model("TimeEntry").reviewMinutesBetween(local.dayStart, local.dayEnd);
+            reviewAllTimeMinutes = model("TimeEntry").reviewMinutesBetween();
+        }
 
         // Completed entries that STARTED on the report day, ordered by code then time.
         local.entries = model("TimeEntry").findAll(

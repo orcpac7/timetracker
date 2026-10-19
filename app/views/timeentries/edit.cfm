@@ -40,6 +40,10 @@
         <label for="notes">Notes</label>
         <input type="text" name="notes" id="notes" style="width:100%;" value="#encodeForHtmlAttribute(timeEntry.notes ?: '')#">
     </div>
+    <div class="field">
+        <input type="hidden" name="isReview" value="0">
+        <label style="cursor:pointer;"><input type="checkbox" name="isReview" value="1" <cfif IsObject(currentTask) AND Val(currentTask.isReview ?: 0)>checked</cfif>> Code review <small>(applies to every entry with this URL)</small></label>
+    </div>
     #submitTag(value="Save changes")#
 #endFormTag()#
 

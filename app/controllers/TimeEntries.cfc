@@ -50,7 +50,8 @@ component extends="Controller" {
                     projectCode_id = local.projectCodeId,
                     title = local.title,
                     url = local.url,
-                    status = "open"
+                    status = "open",
+                    isReview = reviewFlagFor(local.url) ? 1 : 0
                 );
                 if (local.newTask.hasErrors()) {
                     flashInsert(error="Couldn't create the card — pick a project code and enter a title.");
@@ -130,7 +131,8 @@ component extends="Controller" {
                     projectCode_id = Len(local.projectCodeId) ? local.projectCodeId : local.entry.projectCode_id,
                     title = local.title,
                     url = local.url,
-                    status = "open"
+                    status = "open",
+                    isReview = reviewFlagFor(local.url) ? 1 : 0
                 );
                 if (local.newTask.hasErrors()) {
                     flashInsert(error="Couldn't update the task card — enter a title for a new card.");
@@ -148,6 +150,13 @@ component extends="Controller" {
             if (IsObject(local.linkedTask) && local.linkedTask.projectCode_id != local.projectCodeId) {
                 local.linkedTask.update(projectCode_id=local.projectCodeId);
                 model("TimeEntry").updateAll(where="task_id = #Val(local.taskId)#", properties={projectCode_id=local.projectCodeId});
+            }
+        }
+
+        if (Len(local.taskId) && StructKeyExists(params, "isReview")) {
+            local.reviewTask = model("Task").findByKey(local.taskId);
+            if (IsObject(local.reviewTask)) {
+                applyReviewFlag(local.reviewTask, reviewFlagFor(local.reviewTask.url ?: ""));
             }
         }
 
@@ -230,6 +239,26 @@ component extends="Controller" {
     }
 
     // --- helpers -------------------------------------------------------------
+
+    // The form's checkbox wins when submitted (a hidden 0 precedes it); otherwise
+    // fall back to the URL-based default.
+    private boolean function reviewFlagFor(required string url) {
+        if (Len(params.isReview ?: "")) {
+            return ListLast(params.isReview) == "1";
+        }
+        return model("Task").reviewDefaultFor(arguments.url);
+    }
+
+    // Marks a task, and every other task row sharing its URL, as review or not, so
+    // all time logged against that PR changes classification together.
+    private void function applyReviewFlag(required any task, required boolean flag) {
+        local.value = arguments.flag ? 1 : 0;
+        arguments.task.update(isReview=local.value);
+        local.url = Trim(arguments.task.url ?: "");
+        if (Len(local.url)) {
+            model("Task").updateAll(where="url = '#Replace(local.url, "'", "''", "all")#'", properties={isReview=local.value});
+        }
+    }
 
     // The current week, Sunday (day 1) through Saturday (day 7).
     private struct function currentWeekBounds() {

@@ -1,7 +1,7 @@
 <cfoutput>
 <h1>Daily report</h1>
 
-<cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
+<cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "") & (includeReview ? "&includeReview=1" : "")>
 <p>
     <a href="/report/daily/email?date=#reportDateStr##navSuffix#">Open email version (copy/paste into Outlook) &##8599;</a>
     &##160;|&##160;
@@ -20,6 +20,7 @@
         <input type="date" name="date" value="#reportDateStr#">
         <cfif includeExcluded><input type="hidden" name="includeExcluded" value="1"></cfif>
         <cfif showTimes><input type="hidden" name="showTimes" value="1"></cfif>
+        <cfif includeReview><input type="hidden" name="includeReview" value="1"></cfif>
         <button type="submit">Go</button>
     </form>
 </div>
@@ -28,6 +29,7 @@
 <form method="get" action="/report/daily" style="margin-bottom:1.5rem;display:flex;flex-direction:column;gap:.4rem;">
     <input type="hidden" name="date" value="#reportDateStr#">
     <cfif showTimes><input type="hidden" name="showTimes" value="1"></cfif>
+    <cfif includeReview><input type="hidden" name="includeReview" value="1"></cfif>
     <label style="cursor:pointer;">
         <input type="checkbox" name="includeExcluded" value="1" <cfif includeExcluded>checked</cfif> onchange="this.form.submit()">
         Include personal / non-billable codes
@@ -36,12 +38,26 @@
 <form method="get" action="/report/daily" style="margin-bottom:1.5rem;">
     <input type="hidden" name="date" value="#reportDateStr#">
     <cfif includeExcluded><input type="hidden" name="includeExcluded" value="1"></cfif>
+    <cfif includeReview><input type="hidden" name="includeReview" value="1"></cfif>
     <label style="cursor:pointer;">
         <input type="checkbox" name="showTimes" value="1" <cfif showTimes>checked</cfif> onchange="this.form.submit()">
         Show times
     </label>
     <cfif showTimes>
         <span style="margin-left:.75rem;">Total: <strong>#formatMinutes(grandTotalMinutes)#</strong><cfif NOT includeExcluded> <small style="color:##6b7280;">(billable only)</small></cfif></span>
+    </cfif>
+</form>
+
+<form method="get" action="/report/daily" style="margin-bottom:1.5rem;">
+    <input type="hidden" name="date" value="#reportDateStr#">
+    <cfif includeExcluded><input type="hidden" name="includeExcluded" value="1"></cfif>
+    <cfif showTimes><input type="hidden" name="showTimes" value="1"></cfif>
+    <label style="cursor:pointer;">
+        <input type="checkbox" name="includeReview" value="1" <cfif includeReview>checked</cfif> onchange="this.form.submit()">
+        Show Code Review
+    </label>
+    <cfif includeReview>
+        <span style="margin-left:.75rem;">Code review &mdash; this day: <strong>#formatMinutes(reviewTodayMinutes)#</strong> &nbsp;|&nbsp; all time: <strong>#formatMinutes(reviewAllTimeMinutes)#</strong></span>
     </cfif>
 </form>
 

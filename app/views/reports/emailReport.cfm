@@ -1,5 +1,5 @@
 <cfoutput>
-<cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "")>
+<cfset navSuffix = (includeExcluded ? "&includeExcluded=1" : "") & (showTimes ? "&showTimes=1" : "") & (includeReview ? "&includeReview=1" : "")>
 <p style="float:left;">#linkTo(text="Back to report", route="dailyReport", params="date=#reportDateStr#" & navSuffix)#&nbsp;|&nbsp;<a href="/report/daily/notes?date=#reportDateStr##navSuffix#">Notes-only version</a></p>
 <h1>Daily report &mdash; email version</h1>
 
@@ -51,6 +51,12 @@
             </cfif>
         <cfelse>
             <div>No <cfif NOT includeExcluded>billable </cfif>entries for this day.</div>
+        </cfif>
+
+        <cfif includeReview>
+            <div style="font-size:12pt; font-weight:bold; margin-top:12pt; border-top:1px solid ##000000; padding-top:4pt;">
+                Code review &mdash; this day: #formatMinutes(reviewTodayMinutes)# &mdash; all time: #formatMinutes(reviewAllTimeMinutes)#
+            </div>
         </cfif>
     </div>
 </div>

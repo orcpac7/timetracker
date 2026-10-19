@@ -14,6 +14,21 @@ component extends="Model" {
     }
 
     /**
+     * Default review classification for a new task: a pull request URL, or a URL
+     * another task has already been marked as a review.
+     */
+    public boolean function reviewDefaultFor(required string url) {
+        local.url = Trim(arguments.url);
+        if (!Len(local.url)) {
+            return false;
+        }
+        if (FindNoCase("pullrequest", local.url)) {
+            return true;
+        }
+        return model("Task").count(where="isReview = 1 AND url = '#Replace(local.url, "'", "''", "all")#'") > 0;
+    }
+
+    /**
      * Pull the Azure DevOps work item id out of a pasted URL. Handles both the
      * direct card link and a board/backlog deep link that has the card open:
      *   https://dev.azure.com/{org}/{project}/_workitems/edit/12345
