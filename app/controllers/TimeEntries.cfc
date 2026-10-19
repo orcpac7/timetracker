@@ -142,6 +142,15 @@ component extends="Controller" {
             }
         }
 
+        // The model forces an entry's code to its task's code, so a code change must land on the task.
+        if (Len(local.taskId) && Len(local.projectCodeId)) {
+            local.linkedTask = model("Task").findByKey(local.taskId);
+            if (IsObject(local.linkedTask) && local.linkedTask.projectCode_id != local.projectCodeId) {
+                local.linkedTask.update(projectCode_id=local.projectCodeId);
+                model("TimeEntry").updateAll(where="task_id = #Val(local.taskId)#", properties={projectCode_id=local.projectCodeId});
+            }
+        }
+
         local.updateArgs = {
             startedAt = local.started,
             endedAt = local.ended,

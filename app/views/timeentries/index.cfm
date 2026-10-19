@@ -1,46 +1,6 @@
 <cfoutput>
 <h1>Time Tracker</h1>
 
-<!--- ===== Dashboard summary ===== --->
-<div class="dashboard-stats">
-    <div class="stat-card">
-        <div class="stat-label">Today</div>
-        <div class="stat-value">#formatMinutes(dashboardTodayMinutes)#</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">This week</div>
-        <div class="stat-value">#formatMinutes(dashboardWeekMinutes)#</div>
-    </div>
-</div>
-
-<div class="chart-card">
-    <h3>Hours this week</h3>
-    <cfif dashboardWeekMinutes GT 0>
-        <canvas id="weekDailyChart" height="80"></canvas>
-    <cfelse>
-        <p class="text-muted">No time logged yet this week.</p>
-    </cfif>
-</div>
-
-<div class="dashboard-charts">
-    <div class="chart-card">
-        <h3>By code (this week)</h3>
-        <cfif ArrayLen(dashboardWeekByCode)>
-            <canvas id="weekByCodeChart"></canvas>
-        <cfelse>
-            <p class="text-muted">No time logged yet this week.</p>
-        </cfif>
-    </div>
-    <div class="chart-card">
-        <h3>By code (all time)</h3>
-        <cfif ArrayLen(dashboardAllTimeByCode)>
-            <canvas id="allTimeByCodeChart"></canvas>
-        <cfelse>
-            <p class="text-muted">No history yet.</p>
-        </cfif>
-    </div>
-</div>
-
 <cfif IsObject(running)>
     <!--- ===== A timer is running ===== --->
     <cfset runCode = model("ProjectCode").findByKey(running.projectCode_id)>
@@ -107,6 +67,46 @@
         </cfif>
     </div>
 </cfif>
+
+<!--- ===== Dashboard summary ===== --->
+<div class="dashboard-stats">
+    <div class="stat-card">
+        <div class="stat-label">Today</div>
+        <div class="stat-value">#formatMinutes(dashboardTodayMinutes)#</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">This week</div>
+        <div class="stat-value">#formatMinutes(dashboardWeekMinutes)#</div>
+    </div>
+</div>
+
+<div class="chart-card">
+    <h3>Hours this week</h3>
+    <cfif dashboardWeekMinutes GT 0>
+        <canvas id="weekDailyChart" height="80"></canvas>
+    <cfelse>
+        <p class="text-muted">No time logged yet this week.</p>
+    </cfif>
+</div>
+
+<div class="dashboard-charts">
+    <div class="chart-card">
+        <h3>By code (this week)</h3>
+        <cfif ArrayLen(dashboardWeekByCode)>
+            <canvas id="weekByCodeChart"></canvas>
+        <cfelse>
+            <p class="text-muted">No time logged yet this week.</p>
+        </cfif>
+    </div>
+    <div class="chart-card">
+        <h3>By code (all time)</h3>
+        <cfif ArrayLen(dashboardAllTimeByCode)>
+            <canvas id="allTimeByCodeChart"></canvas>
+        <cfelse>
+            <p class="text-muted">No history yet.</p>
+        </cfif>
+    </div>
+</div>
 
 <!--- ===== Recent entries ===== --->
 <h2>Recent entries <small style="font-weight:normal;color:##6b7280;">#dateFormat(fromStr, "mmm d")# &ndash; #dateFormat(toStr, "mmm d")#</small></h2>

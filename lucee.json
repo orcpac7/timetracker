@@ -4,7 +4,7 @@
         "version":"7.0.0.395"
     },
     "port": 8080,
-    "shutdownPort": 8083,
+    "shutdownPort": 8087,
     "webroot":"./public",
     "openBrowser":"false",
     "jvm":{
